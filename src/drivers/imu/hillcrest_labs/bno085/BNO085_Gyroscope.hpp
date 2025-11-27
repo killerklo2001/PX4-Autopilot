@@ -37,7 +37,7 @@
 
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 
-#include "hillcrest_labs_BNO085_Gyroscope_Registers.hpp"
+#include "hillcrest_labs_BNO085_Gyroscope_Reports.hpp"
 
 namespace hillcrest_labs::BNO085::Gyroscope
 {

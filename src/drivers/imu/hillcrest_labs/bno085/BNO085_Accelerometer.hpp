@@ -37,7 +37,7 @@
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 
-#include "hillcrest_labs_BNO085_Accelerometer_Registers.hpp"
+#include "hillcrest_labs_BNO085_Accelerometer_Reports.hpp"
 
 namespace hillcrest_labs::BNO085::Accelerometer
 {
