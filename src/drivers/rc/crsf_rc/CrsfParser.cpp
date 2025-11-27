@@ -153,6 +153,27 @@ static CrsfPacketDescriptor_t *working_descriptor = NULL;
 
 static CrsfPacketDescriptor_t *FindCrsfDescriptor(const enum CRSF_PACKET_TYPE packet_type);
 
+
+// --- strlcpy implementation for Linux ---
+#ifndef HAVE_STRLCPY
+#include <stddef.h>
+
+static size_t strlcpy(char *dst, const char *src, size_t dstsize) {
+    size_t srclen = 0;
+    while (src[srclen] != '\0') srclen++;
+
+    if (dstsize == 0) return srclen;
+
+    size_t copylen = (srclen >= dstsize) ? dstsize - 1 : srclen;
+    for (size_t i = 0; i < copylen; i++)
+        dst[i] = src[i];
+
+    dst[copylen] = '\0';
+    return srclen;
+}
+#endif
+
+
 void CrsfParser_Init(void)
 {
 	QueueBuffer_Init(&rx_queue, rx_queue_buffer, RX_QUEUE_BUFFER_SIZE);
