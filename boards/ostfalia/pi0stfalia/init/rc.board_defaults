@@ -3,5 +3,5 @@
 # board specific defaults
 #------------------------------------------------------------------------------
 
-# 1K + 4.7K
-param set-default BAT1_V_DIV 5.7
+# (61k + 9.1k)/9.1k
+param set-default BAT1_V_DIV 7.7

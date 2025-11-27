@@ -56,9 +56,9 @@
 #define ADC_BATTERY_CURRENT_CHANNEL	-1
 #define ADC_AIRSPEED_VOLTAGE_CHANNEL -1
 
-#define ADC_DP_V_DIV 1.0f	// TODO: Modify to actual voltage divider
+#define ADC_DP_V_DIV 7.7f
 
-#define BOARD_ADC_OPEN_CIRCUIT_V 5.3f	// TODO: Modify to battery power
+#define BOARD_ADC_OPEN_CIRCUIT_V 1.9f // Powered by LiPo battery
 
 #include <system_config.h>
 #include <px4_platform_common/board_common.h>

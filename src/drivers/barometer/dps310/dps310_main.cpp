@@ -108,7 +108,7 @@ extern "C" int dps310_main(int argc, char *argv[])
 
 #if defined(CONFIG_I2C)
 	BusCLIArguments cli {true, true};
-	cli.i2c_address = 0x77;
+	cli.i2c_address = 0x76;
 	cli.default_i2c_frequency = 400000;
 #else
 	BusCLIArguments cli {false, true};
