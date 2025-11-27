@@ -40,12 +40,12 @@
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
 
-class BMI088 : public device::SPI, public I2CSPIDriver<BMI088>
+class BNO085 : public device::SPI, public I2CSPIDriver<BNO085>
 {
 public:
-	BMI088(const I2CSPIDriverConfig &config);
+	BNO085(const I2CSPIDriverConfig &config);
 
-	virtual ~BMI088() = default;
+	virtual ~BNO085() = default;
 
 	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();

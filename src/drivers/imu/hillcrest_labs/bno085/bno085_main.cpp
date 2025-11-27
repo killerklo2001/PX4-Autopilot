@@ -36,9 +36,9 @@
 
 #include "BNO085.hpp"
 
-void BMI088::print_usage()
+void BNO085::print_usage()
 {
-	PRINT_MODULE_USAGE_NAME("bmi088", "driver");
+	PRINT_MODULE_USAGE_NAME("bno085", "driver");
 	PRINT_MODULE_USAGE_SUBCATEGORY("imu");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('A', "Accel", true);
@@ -48,10 +48,10 @@ void BMI088::print_usage()
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
-extern "C" int bmi088_main(int argc, char *argv[])
+extern "C" int bno085_main(int argc, char *argv[])
 {
 	int ch;
-	using ThisDriver = BMI088;
+	using ThisDriver = BNO085;
 	BusCLIArguments cli{false, true};
 	uint16_t type = 0;
 	cli.default_spi_frequency = 10000000;
@@ -60,12 +60,12 @@ extern "C" int bmi088_main(int argc, char *argv[])
 	while ((ch = cli.getOpt(argc, argv, "AGR:")) != EOF) {
 		switch (ch) {
 		case 'A':
-			type = DRV_ACC_DEVTYPE_BMI088;
+			type = DRV_ACC_DEVTYPE_BNO085;
 			name = MODULE_NAME "_accel";
 			break;
 
 		case 'G':
-			type = DRV_GYR_DEVTYPE_BMI088;
+			type = DRV_GYR_DEVTYPE_BNO085;
 			name = MODULE_NAME "_gyro";
 			break;
 

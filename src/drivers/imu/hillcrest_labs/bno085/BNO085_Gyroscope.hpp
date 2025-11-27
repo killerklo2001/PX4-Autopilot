@@ -37,16 +37,16 @@
 
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 
-#include "Bosch_BMI088_Gyroscope_Registers.hpp"
+#include "hillcrest_labs_BNO085_Gyroscope_Registers.hpp"
 
-namespace Bosch::BMI088::Gyroscope
+namespace hillcrest_labs::BNO085::Gyroscope
 {
 
-class BMI088_Gyroscope : public BMI088
+class BNO085_Gyroscope : public BNO085
 {
 public:
-	BMI088_Gyroscope(const I2CSPIDriverConfig &config);
-	~BMI088_Gyroscope() override;
+	BNO085_Gyroscope(const I2CSPIDriverConfig &config);
+	~BNO085_Gyroscope() override;
 
 	void RunImpl() override;
 	void print_status() override;
@@ -116,14 +116,14 @@ private:
 		{ Register::FIFO_WM_ENABLE,         FIFO_WM_ENABLE_BIT::fifo_wm_enable, 0 },
 		{ Register::FIFO_CONFIG_0,          0, 0 }, // fifo_water_mark_level_trigger_retain<6:0>
 		{ Register::FIFO_CONFIG_1,          FIFO_CONFIG_1_BIT::FIFO_MODE, 0 },
-#if defined(CONFIG_BMI088_GYROSCOPE_INT3)
+#if defined(CONFIG_BNO085_GYROSCOPE_INT3)
 		{ Register::INT3_INT4_IO_CONF,      0, INT3_INT4_IO_CONF_BIT::Int3_od | INT3_INT4_IO_CONF_BIT::Int3_lvl },
 		{ Register::INT3_INT4_IO_MAP,       INT3_INT4_IO_MAP_BIT::Int3_fifo, 0 },
-# elif defined(CONFIG_BMI088_GYROSCOPE_INT4)
+# elif defined(CONFIG_BNO085_GYROSCOPE_INT4)
 		{ Register::INT3_INT4_IO_CONF,      0, INT3_INT4_IO_CONF_BIT::Int4_od | INT3_INT4_IO_CONF_BIT::Int4_lvl },
 		{ Register::INT3_INT4_IO_MAP,       INT3_INT4_IO_MAP_BIT::Int4_fifo, 0 },
 # endif
 	};
 };
 
-} // namespace Bosch::BMI088::Gyroscope
+} // namespace Bosch::BNO085::Gyroscope

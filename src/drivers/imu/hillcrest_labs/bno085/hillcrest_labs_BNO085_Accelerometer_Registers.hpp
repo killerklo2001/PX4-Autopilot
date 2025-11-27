@@ -33,7 +33,7 @@
 
 #pragma once
 
-namespace Bosch::BMI088::Accelerometer
+namespace hillcrest_labs::BNO085::Accelerometer
 {
 
 // TODO: move to a central header
@@ -178,4 +178,4 @@ enum header : uint8_t {
 };
 
 } // namespace FIFO
-} // namespace Bosch::BMI088::Accelerometer
+} // namespace Bosch::BNO085::Accelerometer

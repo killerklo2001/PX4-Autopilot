@@ -37,11 +37,11 @@
 
 using namespace time_literals;
 
-namespace Bosch::BMI088::Accelerometer
+namespace hillcrest_labs::BNO085::Accelerometer
 {
 
-BMI088_Accelerometer::BMI088_Accelerometer(const I2CSPIDriverConfig &config) :
-	BMI088(config),
+BNO085_Accelerometer::BNO085_Accelerometer(const I2CSPIDriverConfig &config) :
+	BNO085(config),
 	_px4_accel(get_device_id(), config.rotation)
 {
 	if (config.drdy_gpio != 0) {
@@ -51,7 +51,7 @@ BMI088_Accelerometer::BMI088_Accelerometer(const I2CSPIDriverConfig &config) :
 	ConfigureSampleRate(_px4_accel.get_max_rate_hz());
 }
 
-BMI088_Accelerometer::~BMI088_Accelerometer()
+BNO085_Accelerometer::~BNO085_Accelerometer()
 {
 	perf_free(_bad_register_perf);
 	perf_free(_bad_transfer_perf);
@@ -61,13 +61,13 @@ BMI088_Accelerometer::~BMI088_Accelerometer()
 	perf_free(_drdy_missed_perf);
 }
 
-void BMI088_Accelerometer::exit_and_cleanup()
+void BNO085_Accelerometer::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
 	I2CSPIDriverBase::exit_and_cleanup();
 }
 
-void BMI088_Accelerometer::print_status()
+void BNO085_Accelerometer::print_status()
 {
 	I2CSPIDriverBase::print_status();
 
@@ -81,7 +81,7 @@ void BMI088_Accelerometer::print_status()
 	perf_print_counter(_drdy_missed_perf);
 }
 
-int BMI088_Accelerometer::probe()
+int BNO085_Accelerometer::probe()
 {
 	/* 6.1 Serial Peripheral Interface (SPI)
 	 * ... the accelerometer part starts always in I2C mode
@@ -99,10 +99,10 @@ int BMI088_Accelerometer::probe()
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 
 	if (ACC_CHIP_ID == ID_088) {
-		DEVICE_DEBUG("BMI088 Accel");
+		DEVICE_DEBUG("BNO085 Accel");
 
 	} else if (ACC_CHIP_ID == ID_090L) {
-		DEVICE_DEBUG("BMI090L Accel");
+		DEVICE_DEBUG("BNO085 Accel");
 
 	} else {
 		DEVICE_DEBUG("unexpected ACC_CHIP_ID 0x%02x", ACC_CHIP_ID);
@@ -112,7 +112,7 @@ int BMI088_Accelerometer::probe()
 	return PX4_OK;
 }
 
-void BMI088_Accelerometer::RunImpl()
+void BNO085_Accelerometer::RunImpl()
 {
 	const hrt_abstime now = hrt_absolute_time();
 
@@ -288,7 +288,7 @@ void BMI088_Accelerometer::RunImpl()
 	}
 }
 
-void BMI088_Accelerometer::ConfigureAccel()
+void BNO085_Accelerometer::ConfigureAccel()
 {
 	const uint8_t ACC_RANGE = RegisterRead(Register::ACC_RANGE) & (Bit1 | Bit0);
 
@@ -315,7 +315,7 @@ void BMI088_Accelerometer::ConfigureAccel()
 	}
 }
 
-void BMI088_Accelerometer::ConfigureSampleRate(int sample_rate)
+void BNO085_Accelerometer::ConfigureSampleRate(int sample_rate)
 {
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
 	const float min_interval = FIFO_SAMPLE_DT;
@@ -329,7 +329,7 @@ void BMI088_Accelerometer::ConfigureSampleRate(int sample_rate)
 	ConfigureFIFOWatermark(_fifo_samples);
 }
 
-void BMI088_Accelerometer::ConfigureFIFOWatermark(uint8_t samples)
+void BNO085_Accelerometer::ConfigureFIFOWatermark(uint8_t samples)
 {
 	// FIFO_WTM: 13 bit FIFO watermark level value
 	// unit of the fifo watermark is one byte
@@ -349,7 +349,7 @@ void BMI088_Accelerometer::ConfigureFIFOWatermark(uint8_t samples)
 	}
 }
 
-bool BMI088_Accelerometer::Configure()
+bool BNO085_Accelerometer::Configure()
 {
 	// first set and clear all configured register bits
 	for (const auto &reg_cfg : _register_cfg) {
@@ -370,19 +370,19 @@ bool BMI088_Accelerometer::Configure()
 	return success;
 }
 
-int BMI088_Accelerometer::DataReadyInterruptCallback(int irq, void *context, void *arg)
+int BNO085_Accelerometer::DataReadyInterruptCallback(int irq, void *context, void *arg)
 {
-	static_cast<BMI088_Accelerometer *>(arg)->DataReady();
+	static_cast<BNO085_Accelerometer *>(arg)->DataReady();
 	return 0;
 }
 
-void BMI088_Accelerometer::DataReady()
+void BNO085_Accelerometer::DataReady()
 {
 	_drdy_timestamp_sample.store(hrt_absolute_time());
 	ScheduleNow();
 }
 
-bool BMI088_Accelerometer::DataReadyInterruptConfigure()
+bool BNO085_Accelerometer::DataReadyInterruptConfigure()
 {
 	if (_drdy_gpio == 0) {
 		return false;
@@ -392,7 +392,7 @@ bool BMI088_Accelerometer::DataReadyInterruptConfigure()
 	return px4_arch_gpiosetevent(_drdy_gpio, false, true, true, &DataReadyInterruptCallback, this) == 0;
 }
 
-bool BMI088_Accelerometer::DataReadyInterruptDisable()
+bool BNO085_Accelerometer::DataReadyInterruptDisable()
 {
 	if (_drdy_gpio == 0) {
 		return false;
@@ -401,7 +401,7 @@ bool BMI088_Accelerometer::DataReadyInterruptDisable()
 	return px4_arch_gpiosetevent(_drdy_gpio, false, false, false, nullptr, nullptr) == 0;
 }
 
-bool BMI088_Accelerometer::RegisterCheck(const register_config_t &reg_cfg)
+bool BNO085_Accelerometer::RegisterCheck(const register_config_t &reg_cfg)
 {
 	bool success = true;
 
@@ -420,7 +420,7 @@ bool BMI088_Accelerometer::RegisterCheck(const register_config_t &reg_cfg)
 	return success;
 }
 
-uint8_t BMI088_Accelerometer::RegisterRead(Register reg)
+uint8_t BNO085_Accelerometer::RegisterRead(Register reg)
 {
 	// 6.1.2 SPI interface of accelerometer part
 	//
@@ -434,13 +434,13 @@ uint8_t BMI088_Accelerometer::RegisterRead(Register reg)
 	return cmd[2];
 }
 
-void BMI088_Accelerometer::RegisterWrite(Register reg, uint8_t value)
+void BNO085_Accelerometer::RegisterWrite(Register reg, uint8_t value)
 {
 	uint8_t cmd[2] { (uint8_t)reg, value };
 	transfer(cmd, cmd, sizeof(cmd));
 }
 
-void BMI088_Accelerometer::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
+void BNO085_Accelerometer::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
 {
 	const uint8_t orig_val = RegisterRead(reg);
 
@@ -451,7 +451,7 @@ void BMI088_Accelerometer::RegisterSetAndClearBits(Register reg, uint8_t setbits
 	}
 }
 
-uint16_t BMI088_Accelerometer::FIFOReadCount()
+uint16_t BNO085_Accelerometer::FIFOReadCount()
 {
 	// FIFO length registers FIFO_LENGTH_1 and FIFO_LENGTH_0 contain the 14 bit FIFO byte
 	uint8_t fifo_len_buf[4] {};
@@ -469,7 +469,7 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 	return combine(FIFO_LENGTH_1, FIFO_LENGTH_0);
 }
 
-bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
+bool BNO085_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
@@ -568,7 +568,7 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	return false;
 }
 
-void BMI088_Accelerometer::FIFOReset()
+void BNO085_Accelerometer::FIFOReset()
 {
 	perf_count(_fifo_reset_perf);
 
@@ -579,7 +579,7 @@ void BMI088_Accelerometer::FIFOReset()
 	_drdy_timestamp_sample.store(0);
 }
 
-void BMI088_Accelerometer::UpdateTemperature()
+void BNO085_Accelerometer::UpdateTemperature()
 {
 	// stored in an 11-bit value in 2’s complement format
 	uint8_t temperature_buf[4] {};
@@ -615,4 +615,4 @@ void BMI088_Accelerometer::UpdateTemperature()
 	}
 }
 
-} // namespace Bosch::BMI088::Accelerometer
+} // namespace Bosch::BNO085::Accelerometer

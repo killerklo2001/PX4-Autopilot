@@ -35,11 +35,11 @@
 
 using namespace time_literals;
 
-namespace Bosch::BMI088::Gyroscope
+namespace hillcrest_labs::BNO085::Gyroscope
 {
 
-BMI088_Gyroscope::BMI088_Gyroscope(const I2CSPIDriverConfig &config) :
-	BMI088(config),
+BNO085_Gyroscope::BNO085_Gyroscope(const I2CSPIDriverConfig &config) :
+	BNO085(config),
 	_px4_gyro(get_device_id(), config.rotation)
 {
 	if (config.drdy_gpio != 0) {
@@ -49,7 +49,7 @@ BMI088_Gyroscope::BMI088_Gyroscope(const I2CSPIDriverConfig &config) :
 	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
 }
 
-BMI088_Gyroscope::~BMI088_Gyroscope()
+BNO085_Gyroscope::~BNO085_Gyroscope()
 {
 	perf_free(_bad_register_perf);
 	perf_free(_bad_transfer_perf);
@@ -59,13 +59,13 @@ BMI088_Gyroscope::~BMI088_Gyroscope()
 	perf_free(_drdy_missed_perf);
 }
 
-void BMI088_Gyroscope::exit_and_cleanup()
+void BNO085_Gyroscope::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
 	I2CSPIDriverBase::exit_and_cleanup();
 }
 
-void BMI088_Gyroscope::print_status()
+void BNO085_Gyroscope::print_status()
 {
 	I2CSPIDriverBase::print_status();
 
@@ -79,7 +79,7 @@ void BMI088_Gyroscope::print_status()
 	perf_print_counter(_drdy_missed_perf);
 }
 
-int BMI088_Gyroscope::probe()
+int BNO085_Gyroscope::probe()
 {
 	const uint8_t chipid = RegisterRead(Register::GYRO_CHIP_ID);
 
@@ -91,7 +91,7 @@ int BMI088_Gyroscope::probe()
 	return PX4_OK;
 }
 
-void BMI088_Gyroscope::RunImpl()
+void BNO085_Gyroscope::RunImpl()
 {
 	const hrt_abstime now = hrt_absolute_time();
 
@@ -257,7 +257,7 @@ void BMI088_Gyroscope::RunImpl()
 	}
 }
 
-void BMI088_Gyroscope::ConfigureGyro()
+void BNO085_Gyroscope::ConfigureGyro()
 {
 	const uint8_t GYRO_RANGE = RegisterRead(Register::GYRO_RANGE) & (Bit3 | Bit2 | Bit1 | Bit0);
 
@@ -289,7 +289,7 @@ void BMI088_Gyroscope::ConfigureGyro()
 	}
 }
 
-void BMI088_Gyroscope::ConfigureSampleRate(int sample_rate)
+void BNO085_Gyroscope::ConfigureSampleRate(int sample_rate)
 {
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
 	const float min_interval = FIFO_SAMPLE_DT;
@@ -303,7 +303,7 @@ void BMI088_Gyroscope::ConfigureSampleRate(int sample_rate)
 	ConfigureFIFOWatermark(_fifo_samples);
 }
 
-void BMI088_Gyroscope::ConfigureFIFOWatermark(uint8_t samples)
+void BNO085_Gyroscope::ConfigureFIFOWatermark(uint8_t samples)
 {
 	// FIFO watermark threshold
 	for (auto &r : _register_cfg) {
@@ -314,7 +314,7 @@ void BMI088_Gyroscope::ConfigureFIFOWatermark(uint8_t samples)
 	}
 }
 
-bool BMI088_Gyroscope::Configure()
+bool BNO085_Gyroscope::Configure()
 {
 	// first set and clear all configured register bits
 	for (const auto &reg_cfg : _register_cfg) {
@@ -335,19 +335,19 @@ bool BMI088_Gyroscope::Configure()
 	return success;
 }
 
-int BMI088_Gyroscope::DataReadyInterruptCallback(int irq, void *context, void *arg)
+int BNO085_Gyroscope::DataReadyInterruptCallback(int irq, void *context, void *arg)
 {
-	static_cast<BMI088_Gyroscope *>(arg)->DataReady();
+	static_cast<BNO085_Gyroscope *>(arg)->DataReady();
 	return 0;
 }
 
-void BMI088_Gyroscope::DataReady()
+void BNO085_Gyroscope::DataReady()
 {
 	_drdy_timestamp_sample.store(hrt_absolute_time());
 	ScheduleNow();
 }
 
-bool BMI088_Gyroscope::DataReadyInterruptConfigure()
+bool BNO085_Gyroscope::DataReadyInterruptConfigure()
 {
 	if (_drdy_gpio == 0) {
 		return false;
@@ -357,7 +357,7 @@ bool BMI088_Gyroscope::DataReadyInterruptConfigure()
 	return px4_arch_gpiosetevent(_drdy_gpio, false, true, true, &DataReadyInterruptCallback, this) == 0;
 }
 
-bool BMI088_Gyroscope::DataReadyInterruptDisable()
+bool BNO085_Gyroscope::DataReadyInterruptDisable()
 {
 	if (_drdy_gpio == 0) {
 		return false;
@@ -366,7 +366,7 @@ bool BMI088_Gyroscope::DataReadyInterruptDisable()
 	return px4_arch_gpiosetevent(_drdy_gpio, false, false, false, nullptr, nullptr) == 0;
 }
 
-bool BMI088_Gyroscope::RegisterCheck(const register_config_t &reg_cfg)
+bool BNO085_Gyroscope::RegisterCheck(const register_config_t &reg_cfg)
 {
 	bool success = true;
 
@@ -385,7 +385,7 @@ bool BMI088_Gyroscope::RegisterCheck(const register_config_t &reg_cfg)
 	return success;
 }
 
-uint8_t BMI088_Gyroscope::RegisterRead(Register reg)
+uint8_t BNO085_Gyroscope::RegisterRead(Register reg)
 {
 	uint8_t cmd[2] {};
 	cmd[0] = static_cast<uint8_t>(reg) | DIR_READ;
@@ -393,13 +393,13 @@ uint8_t BMI088_Gyroscope::RegisterRead(Register reg)
 	return cmd[1];
 }
 
-void BMI088_Gyroscope::RegisterWrite(Register reg, uint8_t value)
+void BNO085_Gyroscope::RegisterWrite(Register reg, uint8_t value)
 {
 	uint8_t cmd[2] { (uint8_t)reg, value };
 	transfer(cmd, cmd, sizeof(cmd));
 }
 
-void BMI088_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
+void BNO085_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
 {
 	const uint8_t orig_val = RegisterRead(reg);
 
@@ -410,7 +410,7 @@ void BMI088_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, ui
 	}
 }
 
-bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
+bool BNO085_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 1, FIFO::SIZE);
@@ -454,7 +454,7 @@ bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t sam
 	return true;
 }
 
-void BMI088_Gyroscope::FIFOReset()
+void BNO085_Gyroscope::FIFOReset()
 {
 	perf_count(_fifo_reset_perf);
 
@@ -476,4 +476,4 @@ void BMI088_Gyroscope::FIFOReset()
 	}
 }
 
-} // namespace Bosch::BMI088::Gyroscope
+} // namespace Bosch::BNO085::Gyroscope

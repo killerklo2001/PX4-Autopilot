@@ -33,7 +33,7 @@
 
 #pragma once
 
-namespace Bosch::BMI088::Gyroscope
+namespace hillcrest_labs::BNO085::Gyroscope
 {
 
 // TODO: move to a central header
@@ -140,4 +140,4 @@ static_assert(sizeof(DATA) == 6);
 static constexpr size_t SIZE = sizeof(DATA) * 100;
 
 } // namespace FIFO
-} // namespace Bosch::BMI088::Gyroscope
+} // namespace Bosch::BNO085::Gyroscope

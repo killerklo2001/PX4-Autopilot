@@ -36,8 +36,7 @@
 
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
 	initSPIBus(0, {
-		initSPIDevice(DRV_ACC_DEVTYPE_BNO055, 0),
-		initSPIDevice(DRV_GYR_DEVTYPE_BNO055, 0),
-		initSPIDevice(DRV_MAG_DEVTYPE_BNO055, 0),
+		initSPIDevice(DRV_ACC_DEVTYPE_BNO085, 0),
+		initSPIDevice(DRV_GYR_DEVTYPE_BNO085, 0),
 	}),
 };
