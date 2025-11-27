@@ -54,11 +54,11 @@
 
 #define ADC_BATTERY_VOLTAGE_CHANNEL	0
 #define ADC_BATTERY_CURRENT_CHANNEL	-1
-#define ADC_AIRSPEED_VOLTAGE_CHANNEL 2
+#define ADC_AIRSPEED_VOLTAGE_CHANNEL -1
 
-#define ADC_DP_V_DIV 1.0f
+#define ADC_DP_V_DIV 1.0f	// TODO: Modify to actual voltage divider
 
-#define BOARD_ADC_OPEN_CIRCUIT_V 5.3f	// Powered from USB
+#define BOARD_ADC_OPEN_CIRCUIT_V 5.3f	// TODO: Modify to battery power
 
 #include <system_config.h>
 #include <px4_platform_common/board_common.h>
