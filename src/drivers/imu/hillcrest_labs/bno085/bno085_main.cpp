@@ -41,10 +41,8 @@ void BNO085::print_usage()
 	PRINT_MODULE_USAGE_NAME("bno085", "driver");
 	PRINT_MODULE_USAGE_SUBCATEGORY("imu");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_PARAM_FLAG('A', "Accel", true);
-	PRINT_MODULE_USAGE_PARAM_FLAG('G', "Gyro", true);
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(false, true);
-	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 45, "Rotation", true);
+	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 35, "Rotation", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
@@ -53,22 +51,10 @@ extern "C" int bno085_main(int argc, char *argv[])
 	int ch;
 	using ThisDriver = BNO085;
 	BusCLIArguments cli{false, true};
-	uint16_t type = 0;
 	cli.default_spi_frequency = 200000;
-	const char *name = MODULE_NAME;
 
-	while ((ch = cli.getOpt(argc, argv, "AGR:")) != EOF) {
+	while ((ch = cli.getOpt(argc, argv, "R:")) != EOF) {
 		switch (ch) {
-		case 'A':
-			type = DRV_ACC_DEVTYPE_BNO085;
-			name = MODULE_NAME "_accel";
-			break;
-
-		case 'G':
-			type = DRV_GYR_DEVTYPE_BNO085;
-			name = MODULE_NAME "_gyro";
-			break;
-
 		case 'R':
 			cli.rotation = (enum Rotation)atoi(cli.optArg());
 			break;
@@ -77,12 +63,12 @@ extern "C" int bno085_main(int argc, char *argv[])
 
 	const char *verb = cli.optArg();
 
-	if (!verb || type == 0) {
+	if (!verb) {
 		ThisDriver::print_usage();
 		return -1;
 	}
 
-	BusInstanceIterator iterator(name, cli, type);
+	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_IMU_DEVTYPE_ICM20649);
 
 	if (!strcmp(verb, "start")) {
 		return ThisDriver::module_start(cli, iterator);

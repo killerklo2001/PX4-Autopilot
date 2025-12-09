@@ -36,12 +36,10 @@ px4_add_module(
 	MAIN bno085
 	COMPILE_FLAGS
 	SRCS
-		hillcrest_labs_BNO085_Reports.hpp
+		HillcrestLabs_BNO085_reports.hpp
 
 		BNO085.cpp
 		BNO085.hpp
-		BNO085_Reader.cpp
-		BNO085_Reader.hpp
 
 		bno085_main.cpp
 	DEPENDS
