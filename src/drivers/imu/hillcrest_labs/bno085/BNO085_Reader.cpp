@@ -151,60 +151,69 @@ void BNO085_Reader::WakeUp()
 void BNO085_Reader::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 {
 	constexpr uint8_t CHANNEL_NUMBER = 2;
-	constexpr uint16_t PAYLOAD_LENGTH = static_cast<uint8_t>(ch3_payload::SPECIFIC_CONFIG_MSB) + 1;
+	constexpr uint16_t PAYLOAD_LENGTH =
+		static_cast<uint8_t>(feature_control_payload::SPECIFIC_CONFIG_MSB) + 1;
 
-	uint8_t tx_packet[4 + PAYLOAD_LENGTH] {};
+	constexpr size_t PACKET_LEN = 4 + PAYLOAD_LENGTH;
 
+	uint8_t tx_packet[PACKET_LEN] {};
+	uint8_t rx_packet[PACKET_LEN] {};
+
+	// header
 	tx_packet[(uint8_t)header::LENGTH_LSB] = PAYLOAD_LENGTH & 0xFF;
 	tx_packet[(uint8_t)header::LENGTH_MSB] = (PAYLOAD_LENGTH >> 8) & 0xFF;
 	tx_packet[(uint8_t)header::CHANNEL]    = CHANNEL_NUMBER;
 	tx_packet[(uint8_t)header::CH_SEQ]     = seq++ & 0xFF;
 
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_ID] = SHTP_REPORT_SET_FEATURE_COMMAND;
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_ID_FEATURE] = feature_id;
+	// feature command
+	tx_packet[4 + (uint8_t)feature_control_payload::COMMAND_ID]        = SHTP_REPORT_SET_FEATURE_COMMAND;
+	tx_packet[4 + (uint8_t)feature_control_payload::REPORT_ID_FEATURE] = feature_id;
 
-	tx_packet[4 + (uint8_t)ch3_payload::FLAGS] = 0;
+	tx_packet[4 + (uint8_t)feature_control_payload::FLAGS] = 0;
 
-	tx_packet[4 + (uint8_t)ch3_payload::CHANGE_SENSITIVITY_LSB] = 0;
-	tx_packet[4 + (uint8_t)ch3_payload::CHANGE_SENSITIVITY_MSB] = 0;
+	tx_packet[4 + (uint8_t)feature_control_payload::CHANGE_SENSITIVITY_LSB] = 0;
+	tx_packet[4 + (uint8_t)feature_control_payload::CHANGE_SENSITIVITY_MSB] = 0;
 
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_INTERVAL_LSB] = (report_interval_us >> 0) & 0xFF;
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_INTERVAL_1]   = (report_interval_us >> 8) & 0xFF;
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_INTERVAL_2]   = (report_interval_us >> 16) & 0xFF;
-	tx_packet[4 + (uint8_t)ch3_payload::REPORT_INTERVAL_MSB] = (report_interval_us >> 24) & 0xFF;
-
-	// rest of payload is zero (defaults)
+	tx_packet[4 + (uint8_t)feature_control_payload::REPORT_INTERVAL_LSB] = (report_interval_us >> 0) & 0xFF;
+	tx_packet[4 + (uint8_t)feature_control_payload::REPORT_INTERVAL_1]   = (report_interval_us >> 8) & 0xFF;
+	tx_packet[4 + (uint8_t)feature_control_payload::REPORT_INTERVAL_2]   = (report_interval_us >> 16) & 0xFF;
+	tx_packet[4 + (uint8_t)feature_control_payload::REPORT_INTERVAL_MSB] = (report_interval_us >> 24) & 0xFF;
 
 	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
 
 	WakeUp();
-	transfer(tx_packet, rx_packet, sizeof(tx_packet));
+	transfer(tx_packet, rx_packet, PACKET_LEN);
 
-	// wait for get feature response
 	uint16_t tries = 0;
 	const uint16_t max_tries = 50;
 	bool success = false;
 
 	WakeUp();
 	while (tries < max_tries && !success) {
-		while (px4_arch_gpioread(_drdy_gpio)) { px4_usleep(1000); }
 
-		uint8_t payload_size = PAYLOAD_LENGTH;
-		uint8_t rx_packet[payload_size + 4];
-		transfer(nullptr, rx_packet, sizeof(rx_packet));
+		while (px4_arch_gpioread(_drdy_gpio)) {
+			px4_usleep(1000);
+		}
 
-		if (rx_packet[4] == SHTP_REPORT_GET_FEATURE_RESPONSE) {
-		PX4_INFO("Feature 0x%02X: got GET_FEATURE_RESPONSE", feature_id);
-		success = true;
+		uint8_t response[PACKET_LEN] {};
+		transfer(nullptr, response, PACKET_LEN);
+
+		const uint8_t cmd_id =
+			response[4 + (uint8_t)feature_control_payload::COMMAND_ID];
+
+		if (cmd_id == SHTP_REPORT_GET_FEATURE_RESPONSE) {
+			PX4_INFO("Feature 0x%02X: got GET_FEATURE_RESPONSE", feature_id);
+			success = true;
 		}
 
 		tries++;
 	}
 
 	if (!success) {
-		PX4_WARN("BNO feature 0x%02X set failed after %d tries", feature_id, max_tries);
+		PX4_WARN("BNO feature 0x%02X set failed after %u tries", feature_id, max_tries);
 	}
 }
+
 
 void BNO085_Reader::Configure()
 {

@@ -63,7 +63,7 @@ enum header : uint8_t {
 };
 
 enum feature_control_payload : uint8_t {
-    REPORT_ID              = 0,  // Byte 0:  set feature command or get feature response report id
+    COMMAND_ID             = 0,  // Byte 0:  set feature command or get feature response report id
     REPORT_ID_FEATURE      = 1,  // Byte 1:  feature report ID
     FLAGS                  = 2,  // Byte 2:  feature flags
     CHANGE_SENSITIVITY_LSB = 3,  // Byte 3:  change sensitivity [abs|rel] LSB

@@ -4,7 +4,7 @@
 #include "BNO085.hpp"
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
-#include "hillcrest_labs_BNO085_Gyroscope_Reports.hpp"
+#include "hillcrest_labs_BNO085_Reports.hpp"
 
 namespace hillcrest_labs::BNO085::Gyroscope
 {
@@ -24,8 +24,6 @@ private:
 	// Sensor configuration
 	static constexpr uint32_t RATE{2000};     // 2000 Hz
 	static constexpr float SAMPLE_DT{1e6f / RATE};
-
-	int probe() override { return PX4_OK; }
 
 	bool Configure();
 	void ConfigureGyro();
