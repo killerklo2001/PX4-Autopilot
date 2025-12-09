@@ -19,31 +19,21 @@ config BNO085_ACCELEROMETER_INT1
 	bool "INT1"
 	---help---
 		Use INT1 pin of the BNO085 to output accelerometer interrupts
-
-config BNO085_ACCELEROMETER_INT2
-	bool "INT2"
-	---help---
-		Use INT2 pin of the BNO085 to output accelerometer interrupts
 endchoice
 
 choice
 	prompt "BNO085 gyroscope interrupt pin"
-	default BNO085_GYROSCOPE_INT3
+	default BNO085_GYROSCOPE_INT1
 
 config BNO085_GYROSCOPE_INT_NONE
 	bool "No interrupts"
 	---help---
 		No pin on the BNO085 will output gyroscope interrupts
 
-config BNO085_GYROSCOPE_INT3
-	bool "INT3"
+config BNO085_GYROSCOPE_INT1
+	bool "INT1"
 	---help---
-		Use INT3 pin of the BNO085 to output gyroscope interrupts
-
-config BNO085_GYROSCOPE_INT4
-	bool "INT4"
-	---help---
-		Use INT4 pin of the BNO085 to output gyroscope interrupts
+		Use INT1 pin of the BNO085 to output gyroscope interrupts
 endchoice
 
 endif

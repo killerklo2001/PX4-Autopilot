@@ -33,8 +33,7 @@
 
 #include "BNO085.hpp"
 
-#include "BNO085_Accelerometer.hpp"
-#include "BNO085_Gyroscope.hpp"
+#include "BNO085_Reader.hpp"
 
 I2CSPIDriverBase *BNO085::instantiate(const I2CSPIDriverConfig &config, int runtime_instance)
 {

@@ -36,15 +36,12 @@ px4_add_module(
 	MAIN bno085
 	COMPILE_FLAGS
 	SRCS
-		hillcrest_labs_BNO085_Accelerometer_Registers.hpp
-		hillcrest_labs_BNO085_Gyroscope_Registers.hpp
+		hillcrest_labs_BNO085_Reports.hpp
 
 		BNO085.cpp
 		BNO085.hpp
-		BNO085_Accelerometer.cpp
-		BNO085_Accelerometer.hpp
-		BNO085_Gyroscope.cpp
-		BNO085_Gyroscope.hpp
+		BNO085_Reader.cpp
+		BNO085_Reader.hpp
 
 		bno085_main.cpp
 	DEPENDS

@@ -38,6 +38,8 @@
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 
+#define SCALE_Q(n) (1.0f / (1 << n))
+
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
 
 class BNO085 : public device::SPI, public I2CSPIDriver<BNO085>
@@ -57,9 +59,13 @@ public:
 
 protected:
 
+	void WakeUp();
+
 	bool Reset();
 
 	const spi_drdy_gpio_t _drdy_gpio;
+	const uint32_t _pin_reset_gpio;
+	const uint32_t _pin_wakeup_gpio;
 
 	hrt_abstime _reset_timestamp{0};
 	hrt_abstime _last_config_check_timestamp{0};
@@ -71,12 +77,9 @@ protected:
 
 	enum class STATE : uint8_t {
 		RESET,
-		WAIT_FOR_RESET,
 		CONFIGURE,
-		FIFO_RESET,
-		FIFO_READ,
+		CONFIGURATION_COMPLETE,
+		READ,
 	} _state{STATE::RESET};
-
-	uint16_t _fifo_empty_interval_us{2500}; // 2500 us / 400 Hz transfer interval
 
 };

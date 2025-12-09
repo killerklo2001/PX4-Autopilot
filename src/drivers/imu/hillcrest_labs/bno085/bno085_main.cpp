@@ -44,7 +44,7 @@ void BNO085::print_usage()
 	PRINT_MODULE_USAGE_PARAM_FLAG('A', "Accel", true);
 	PRINT_MODULE_USAGE_PARAM_FLAG('G', "Gyro", true);
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(false, true);
-	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 35, "Rotation", true);
+	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 45, "Rotation", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
@@ -54,7 +54,7 @@ extern "C" int bno085_main(int argc, char *argv[])
 	using ThisDriver = BNO085;
 	BusCLIArguments cli{false, true};
 	uint16_t type = 0;
-	cli.default_spi_frequency = 10000000;
+	cli.default_spi_frequency = 200000;
 	const char *name = MODULE_NAME;
 
 	while ((ch = cli.getOpt(argc, argv, "AGR:")) != EOF) {
