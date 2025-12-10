@@ -10,8 +10,8 @@ BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	SPI(config),
 	I2CSPIDriver(config),
 	_drdy_gpio(config.drdy_gpio),
-	_pin_reset_gpio(config.reset_gpio),
-	_pin_wakeup_gpio(config.wakeup_gpio),
+	_pin_reset_gpio(29),
+	_pin_wakeup_gpio(7),
 	_px4_accel(get_device_id(), config.rotation),
 	_px4_gyro(get_device_id(), config.rotation)
 {
@@ -61,7 +61,7 @@ void BNO085::print_status()
 int BNO085::probe()
 {
 	//TODO: add real WHOAMI check
-	return PX4_OK
+	return PX4_OK;
 }
 
 
@@ -72,6 +72,7 @@ void BNO085::RunImpl()
 
 	switch (_state) {
 	case STATE::RESET:
+	{
 		// Reset sequence
 		px4_arch_gpiowrite(_pin_wakeup_gpio, true);
 		px4_usleep(10 * 1000);
@@ -81,18 +82,21 @@ void BNO085::RunImpl()
 		px4_arch_gpiowrite(_pin_reset_gpio, true);
 
 		break;
+	}
 
 	case STATE::WAIT_FOR_REBOOT:
+	{
 		// Boot handshake: wait for INT pin
-		hrt_abstime start = hrt_absolute_time();
 		while (px4_arch_gpioread(_drdy_gpio) == true) { px4_usleep(1000); }
 		while (px4_arch_gpioread(_drdy_gpio) == false) { px4_usleep(1000); }
 		while (px4_arch_gpioread(_drdy_gpio) == true) { px4_usleep(1000); }
 		while (px4_arch_gpioread(_drdy_gpio) == false) { px4_usleep(1000); }
 
 		break;
+	}
 
 	case STATE::FLUSH_REBOOT_REPORTS:
+	{
 		// Flush initial boot reports
 		uint8_t tx_dummy[24] {};  // nur Nullen
 		uint8_t rx_dummy[24] {};
@@ -106,8 +110,10 @@ void BNO085::RunImpl()
 		ScheduleDelayed(30_ms);
 
 		break;
+	}
 
 	case STATE::CONFIGURE:
+	{
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::READ_REPORTS;
@@ -136,8 +142,10 @@ void BNO085::RunImpl()
 		}
 
 		break;
+	}
 
 	case STATE::READ_REPORTS:
+	{
 		hrt_abstime timestamp_sample = 0;
 
 		bool success = false;
@@ -160,6 +168,7 @@ void BNO085::RunImpl()
 		}
 
 		break;
+	}
 
 	}
 }
@@ -298,6 +307,7 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 	switch (rx_packet.ch3_payload.report_id) {
 
 		case SENSOR_REPORTID_ACCELEROMETER:
+		{
 			sensor_accel_fifo_s accel{};
 			accel.timestamp_sample = timestamp_sample;
 			accel.samples = 1;
@@ -307,8 +317,10 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 			accel.z[0] = data_z;
 			_px4_accel.updateFIFO(accel);
 			break;
+		}
 
 		case SENSOR_REPORTID_GYROSCOPE:
+		{
 			sensor_gyro_fifo_s gyro{};
 			gyro.timestamp_sample = timestamp_sample;
 			gyro.samples = 1;
@@ -318,6 +330,7 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 			gyro.z[0] = data_z;
 			_px4_gyro.updateFIFO(gyro);
 			break;
+		}
 	}
 
 	return true;

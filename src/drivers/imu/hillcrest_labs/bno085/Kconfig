@@ -6,49 +6,19 @@ menuconfig DRIVERS_IMU_HILLCREST_LABS_BNO085
 
 if DRIVERS_IMU_HILLCREST_LABS_BNO085
 
-choice
-    prompt "BNO085 data ready interrupt pin (for both accelerometer and gyroscope)"
-    default BNO085_INT_NONE
-
-config BNO085_INT_NONE
-    bool "No interrupts"
+config BNO085_INT_PIN
+    int "31"
     ---help---
-        No pin on the BNO085 will output sensor interrupts
+        Use Pin 31 as data ready (INT) pin
 
-config BNO085_INT1
-    bool "INT1"
+config BNO085_RESET_PIN
+    int "29"
     ---help---
-        Use INT1 pin of the BNO085 to output sensor interrupts
-endchoice
+        Use Pin 29 as reset pin
 
-choice
-    prompt "BNO085 reset pin"
-    default BNO085_RESET_PIN_NONE
-
-config BNO085_RESET_PIN_NONE
-    bool "No reset pin"
+config BNO085_WAKEUP_PIN
+    int "7"
     ---help---
-        Do not use a dedicated reset pin
-
-config BNO085_RESET_PIN1
-    bool "Pin 1"
-    ---help---
-        Use Pin 1 as reset pin
-endchoice
-
-choice
-    prompt "BNO085 wakeup pin"
-    default BNO085_WAKEUP_PIN_NONE
-
-config BNO085_WAKEUP_PIN_NONE
-    bool "No wakeup pin"
-    ---help---
-        Do not use a dedicated wakeup pin
-
-config BNO085_WAKEUP_PIN1
-    bool "Pin 1"
-    ---help---
-        Use Pin 1 as wakeup pin
-endchoice
+        Use Pin 7 as wakeup pin
 
 endif
