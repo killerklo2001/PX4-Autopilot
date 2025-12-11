@@ -45,5 +45,6 @@ px4_add_module(
 	DEPENDS
 		drivers_accelerometer
 		drivers_gyroscope
+		drivers__device
 		px4_work_queue
 	)

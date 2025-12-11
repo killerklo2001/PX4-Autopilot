@@ -46,11 +46,17 @@ elseif((${PX4_PLATFORM} MATCHES "qurt"))
 	list(APPEND SRCS_PLATFORM qurt/uart.c)
 elseif(UNIX AND NOT APPLE) #TODO: add linux PX4 platform type
 	# Linux I2Cdev and SPIdev
+	message(STATUS "CONFIG_SPI=${CONFIG_SPI}")
+	message(STATUS "CONFIG_I2C=${CONFIG_I2C}")
+	message(STATUS "PX4_PLATFORM=${PX4_PLATFORM}")
+
 	list(APPEND SRCS_PLATFORM
 		posix/I2C.cpp
 		posix/SPI.cpp
 	)
 endif()
+
+message(STATUS "${SRCS_PLATFORM}")
 
 px4_add_library(drivers__device
 	CDev.cpp

@@ -40,6 +40,7 @@
 
 #include "SPI.hpp"
 
+
 #if defined(CONFIG_SPI)
 
 #ifdef __PX4_LINUX

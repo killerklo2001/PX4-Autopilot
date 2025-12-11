@@ -39,6 +39,8 @@
 
 #pragma once
 
+#include <px4_platform_common/px4_config.h>
+
 #define BOARD_OVERRIDE_UUID "RPIID00000000000" // must be of length 16
 #define PX4_SOC_ARCH_ID     PX4_SOC_ARCH_ID_RPI
 
