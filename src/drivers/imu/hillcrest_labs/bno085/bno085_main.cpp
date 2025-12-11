@@ -51,7 +51,7 @@ extern "C" int bno085_main(int argc, char *argv[])
 	int ch;
 	using ThisDriver = BNO085;
 	BusCLIArguments cli{false, true};
-	cli.default_spi_frequency = 200000;
+	cli.default_spi_frequency = 1000000; // 1MHz
 
 	while ((ch = cli.getOpt(argc, argv, "R:")) != EOF) {
 		switch (ch) {
@@ -68,7 +68,7 @@ extern "C" int bno085_main(int argc, char *argv[])
 		return -1;
 	}
 
-	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_IMU_DEVTYPE_ICM20649);
+	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_IMU_DEVTYPE_BNO085);
 
 	if (!strcmp(verb, "start")) {
 		return ThisDriver::module_start(cli, iterator);

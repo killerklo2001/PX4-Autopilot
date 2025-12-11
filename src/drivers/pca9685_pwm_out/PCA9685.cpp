@@ -127,7 +127,7 @@ int PCA9685::updateFreq(float freq)
 	}
 
 	currentFreq = (float)PCA9685_CLOCK_REFERENCE / (float)((divider + 1) * 4096);
-	PX4_INFO("PCA9685 PWM frequency: target=%.2f real=%.2f", (double)freq, (double)currentFreq);
+	//PX4_INFO("PCA9685 PWM frequency: target=%.2f real=%.2f", (double)freq, (double)currentFreq);
 
 	return setDivider(divider);
 }

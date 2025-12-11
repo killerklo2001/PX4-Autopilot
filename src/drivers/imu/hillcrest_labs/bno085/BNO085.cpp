@@ -4,8 +4,6 @@
 using namespace time_literals;
 
 
-//TODO: WO die pins setzen hääää
-
 BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	SPI(config),
 	I2CSPIDriver(config),
@@ -73,6 +71,7 @@ void BNO085::RunImpl()
 	switch (_state) {
 	case STATE::RESET:
 	{
+		PX4_INFO("BIN IM RESET");
 		// Reset sequence
 		px4_arch_gpiowrite(_pin_wakeup_gpio, true);
 		px4_usleep(10 * 1000);
