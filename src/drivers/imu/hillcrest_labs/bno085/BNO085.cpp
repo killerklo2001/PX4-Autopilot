@@ -1,15 +1,14 @@
 
 #include "BNO085.hpp"
 
+#include <pigpio.h>
+
 using namespace time_literals;
 
 
 BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	SPI(config),
 	I2CSPIDriver(config),
-	_drdy_gpio(config.drdy_gpio),
-	_pin_reset_gpio(29),
-	_pin_wakeup_gpio(7),
 	_px4_accel(get_device_id(), config.rotation),
 	_px4_gyro(get_device_id(), config.rotation)
 {
@@ -32,6 +31,16 @@ int BNO085::init()
 		return ret;
 	}
 
+	if (gpioInitialise() < 0) {
+		DEVICE_DEBUG("pigpio initialisation failed");
+		return PX4_ERROR("pigpio initialisation failed");
+	}
+
+	gpioSetMode(CONFIG_BNO085_INT_PIN, PI_INPUT);
+	gpioSetPullUpDown(CONFIG_BNO085_INT_PIN, PI_PUD_UP);
+	gpioSetMode(CONFIG_BNO085_RESET_PIN, PI_OUTPUT);
+	gpioSetMode(CONFIG_BNO085_WAKEUP_PIN, PI_OUTPUT);
+
 	return Reset() ? 0 : -1;
 }
 
@@ -48,6 +57,7 @@ void BNO085::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
 	I2CSPIDriverBase::exit_and_cleanup();
+	gpioTerminate();
 }
 
 void BNO085::print_status()
@@ -73,12 +83,12 @@ void BNO085::RunImpl()
 	{
 		PX4_INFO("BIN IM RESET");
 		// Reset sequence
-		px4_arch_gpiowrite(_pin_wakeup_gpio, true);
+		gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 1);
 		px4_usleep(10 * 1000);
 
-		px4_arch_gpiowrite(_pin_reset_gpio, false);
+		gpioWrite(CONFIG_BNO085_RESET_PIN, 0);
 		px4_usleep(1 * 1000);
-		px4_arch_gpiowrite(_pin_reset_gpio, true);
+		gpioWrite(CONFIG_BNO085_RESET_PIN, 1);
 
 		break;
 	}
@@ -86,10 +96,11 @@ void BNO085::RunImpl()
 	case STATE::WAIT_FOR_REBOOT:
 	{
 		// Boot handshake: wait for INT pin
-		while (px4_arch_gpioread(_drdy_gpio) == true) { px4_usleep(1000); }
-		while (px4_arch_gpioread(_drdy_gpio) == false) { px4_usleep(1000); }
-		while (px4_arch_gpioread(_drdy_gpio) == true) { px4_usleep(1000); }
-		while (px4_arch_gpioread(_drdy_gpio) == false) { px4_usleep(1000); }
+		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
+		while (gpioRead(CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
+		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
+		while (gpioRead(CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
+		PX4_INFO("Wait for reboot complete");
 
 		break;
 	}
@@ -174,9 +185,9 @@ void BNO085::RunImpl()
 
 void BNO085::WakeUp()
 {
-	px4_arch_gpiowrite(_pin_wakeup_gpio, false);
+	gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 0);
 	px4_usleep(10 * 1000); // 10 ms
-	px4_arch_gpiowrite(_pin_wakeup_gpio, true);
+	gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 1);
 	px4_usleep(10 * 1000); // 10 ms
 }
 
@@ -213,7 +224,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	WakeUp();
 	while (tries < max_tries && !success) {
 
-		while (px4_arch_gpioread(_drdy_gpio)) {
+		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) {
 			px4_usleep(1000);
 		}
 
@@ -259,20 +270,12 @@ void BNO085::DataReady()
 
 bool BNO085::DataReadyInterruptConfigure()
 {
-	if (_drdy_gpio == 0) {
-		return false;
-	}
-
 	// Setup data ready on falling edge
-	return px4_arch_gpiosetevent(_drdy_gpio, false, true, true, &DataReadyInterruptCallback, this) == 0;
+	return px4_arch_gpiosetevent(CONFIG_BNO085_INT_PIN, false, true, true, &DataReadyInterruptCallback, this) == 0;
 }
 
 bool BNO085::DataReadyInterruptDisable()
 {
-	if (_drdy_gpio == 0) {
-		return false;
-	}
-
 	return px4_arch_gpiosetevent(_drdy_gpio, false, false, false, nullptr, nullptr) == 0;
 }
 

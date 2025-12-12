@@ -50,10 +50,6 @@ private:
 
 	bool ReadReport(const hrt_abstime &timestamp_sample);
 
-	const spi_drdy_gpio_t _drdy_gpio;
-	const uint32_t _pin_reset_gpio;
-	const uint32_t _pin_wakeup_gpio;
-
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
 
