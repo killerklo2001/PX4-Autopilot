@@ -43,14 +43,14 @@ private:
 
 	bool Configure();
 
-	static int DataReadyInterruptCallback(int irq, void *context, void *arg);
-	void DataReady();
+	static void DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32_t tick, void *userdata);
 	bool DataReadyInterruptConfigure();
 	bool DataReadyInterruptDisable();
 
 	bool ReadReport(const hrt_abstime &timestamp_sample);
 
 	int _pi{-1};
+	int _pigpio_cb{-1};
 	const spi_drdy_gpio_t _drdy_gpio;
 	
 	PX4Accelerometer _px4_accel;

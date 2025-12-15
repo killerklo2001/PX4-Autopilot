@@ -32,19 +32,12 @@ int BNO085::init()
 		DEVICE_DEBUG("SPI::init failed (%i)", ret);
 		return ret;
 	}
-	PX4_INFO("vor if");
 
 	_pi = pigpio_start(nullptr, nullptr);
 	if (_pi < 0) {
 		PX4_ERR("Cannot connect to pigpiod");
 		return PX4_ERROR;
 	}
-
-	// if (gpioInitialise() < 0) {
-	// 	PX4_INFO("in init");
-	// 	DEVICE_DEBUG("pigpio initialisation failed");
-	//  	return PX4_ERROR;
-	// }
 
 	set_mode(_pi, CONFIG_BNO085_INT_PIN, PI_INPUT);
 	set_pull_up_down(_pi, CONFIG_BNO085_INT_PIN, PI_PUD_UP);
@@ -92,14 +85,7 @@ void BNO085::RunImpl()
 	switch (_state) {
 	case STATE::RESET:
 	{
-		while(1)
-		{
-			gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
-			px4_usleep(1 * 1000000);
-			gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 0);
-			px4_usleep(1 * 1000000);	
-		}
-
+		PX4_INFO("IN RESET");
 		// Reset sequence
 		gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
 		px4_usleep(10 * 1000);
@@ -108,40 +94,43 @@ void BNO085::RunImpl()
 		px4_usleep(1 * 1000);
 		gpio_write(_pi, CONFIG_BNO085_RESET_PIN, 1);
 
+		_state = STATE::WAIT_FOR_REBOOT;
+		ScheduleNow();
 		break;
 	}
 
 	case STATE::WAIT_FOR_REBOOT:
 	{
+		PX4_INFO("IN WAIT_FOR_REBOOT");
 		// Boot handshake: wait for INT pin
-		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
-		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
-		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
-		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
-		PX4_INFO("Wait for reboot complete");
+		ScheduleDelayed(1_ms);
 
+		_state = STATE::FLUSH_REBOOT_REPORTS;
+		ScheduleNow();
 		break;
 	}
 
 	case STATE::FLUSH_REBOOT_REPORTS:
-	{
+	{	
+		PX4_INFO("IN FLUSH_REBOOT_REPORTS");
 		// Flush initial boot reports
+		DataReadyInterruptDisable();
 		uint8_t tx_dummy[24] {};  // nur Nullen
 		uint8_t rx_dummy[24] {};
 		for (int i = 0; i < 100; i++) {
 			SPI::transfer(tx_dummy, rx_dummy, 20); // sendet 20 Bytes Dummy, liest 20 Bytes vom Sensor
 		}
-		DataReadyInterruptDisable();
 		_reset_timestamp = now;
 		_failure_count = 0;
+		
 		_state = STATE::CONFIGURE;
-		ScheduleDelayed(30_ms);
-
+		ScheduleNow();
 		break;
 	}
 
 	case STATE::CONFIGURE:
 	{
+		PX4_INFO("IN CONFIGURE");
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::READ_REPORTS;
@@ -174,6 +163,7 @@ void BNO085::RunImpl()
 
 	case STATE::READ_REPORTS:
 	{
+		PX4_INFO("IN READ_REPORTS");
 		hrt_abstime timestamp_sample = 0;
 
 		bool success = false;
@@ -232,7 +222,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
 
 	WakeUp();
-	transfer(reinterpret_cast<uint8_t*>(&tx_packet), nullptr, sizeof(tx_packet));
+	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), nullptr, sizeof(tx_packet));
 
 	// wait for response
 	uint16_t tries = 0;
@@ -246,7 +236,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 			px4_usleep(1000);
 		}
 
-		transfer(reinterpret_cast<uint8_t*>(&dummy_tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(dummy_tx_packet));
+		SPI::transfer(reinterpret_cast<uint8_t*>(&dummy_tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(dummy_tx_packet));
 
 		if (rx_packet.feature_control_payload.command_id == SHTP_REPORT_GET_FEATURE_RESPONSE) {
 			PX4_INFO("Feature 0x%02X: got GET_FEATURE_RESPONSE", feature_id);
@@ -268,34 +258,47 @@ bool BNO085::Configure()
 
 	_px4_accel.set_scale(SCALE_Q(8));
 	_px4_accel.set_range(8.f * CONSTANTS_ONE_G);
-
+	PX4_INFO("BEFORE setFeature");
 	SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE);
 	SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE);
+	PX4_INFO("AFTER setFeature");
 
 	return true;
 }
 
-int BNO085::DataReadyInterruptCallback(int irq, void *context, void *arg)
+
+void BNO085::DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32_t tick, void *userdata)
+
 {
-	static_cast<BNO085 *>(arg)->DataReady();
-	return 0;
+    if (edge == 0) {  // FALLING_EDGE
+        static_cast<BNO085 *>(userdata)->ScheduleNow();
+    }
 }
 
-void BNO085::DataReady()
-{
-	ScheduleNow();
-}
 
 bool BNO085::DataReadyInterruptConfigure()
 {
-	// Setup data ready on falling edge
-	return px4_arch_gpiosetevent(CONFIG_BNO085_INT_PIN, false, true, true, &DataReadyInterruptCallback, this) == 0;
+    _pigpio_cb = callback_ex(
+        _pi,
+        CONFIG_BNO085_INT_PIN,
+        FALLING_EDGE,
+        &BNO085::DataReadyCallback,
+        this
+    );
+
+    return _pigpio_cb >= 0;
 }
+
 
 bool BNO085::DataReadyInterruptDisable()
 {
-	return px4_arch_gpiosetevent(CONFIG_BNO085_INT_PIN, false, false, false, nullptr, nullptr) == 0;
+    if (_pigpio_cb >= 0) {
+        callback_cancel(_pigpio_cb);
+        _pigpio_cb = -1;
+    }
+    return true;
 }
+
 
 bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 {
@@ -309,7 +312,7 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 	tx_packet.header.channel = CHANNEL_NUMBER;
 	tx_packet.header.ch_seq = (tx_packet.header.ch_seq + 1) & 0xFF;
 
-	transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
+	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
 
 	// check if timebase report
 	if (rx_packet.ch3_payload.timebase_id != SHTP_REPORT_BASE_TIME) {
