@@ -7,18 +7,18 @@ menuconfig DRIVERS_IMU_HILLCREST_LABS_BNO085
 if DRIVERS_IMU_HILLCREST_LABS_BNO085
 
 config BNO085_INT_PIN
-    int "31"
+    int 6
     ---help---
-        Use Pin 31 as data ready (INT) pin
+        Use GPIO 6 as data ready (INT) pin
 
 config BNO085_RESET_PIN
-    int "29"
+    int 5
     ---help---
-        Use Pin 29 as reset pin
+        Use GPIO 5 as reset pin
 
 config BNO085_WAKEUP_PIN
-    int "7"
+    int 4
     ---help---
-        Use Pin 7 as wakeup pin
+        Use GPIO 4 as wakeup pin
 
 endif

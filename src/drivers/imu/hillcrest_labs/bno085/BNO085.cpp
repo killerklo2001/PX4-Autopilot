@@ -1,7 +1,7 @@
 
 #include "BNO085.hpp"
 
-#include <pigpio.h>
+#include <pigpiod_if2.h>
 
 using namespace time_literals;
 
@@ -9,12 +9,14 @@ using namespace time_literals;
 BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	SPI(config),
 	I2CSPIDriver(config),
+	_drdy_gpio(config.drdy_gpio),
 	_px4_accel(get_device_id(), config.rotation),
 	_px4_gyro(get_device_id(), config.rotation)
 {
 	if (_drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
 	}
+
 }
 
 BNO085::~BNO085()
@@ -30,16 +32,24 @@ int BNO085::init()
 		DEVICE_DEBUG("SPI::init failed (%i)", ret);
 		return ret;
 	}
+	PX4_INFO("vor if");
 
-	if (gpioInitialise() < 0) {
-		DEVICE_DEBUG("pigpio initialisation failed");
-		return PX4_ERROR("pigpio initialisation failed");
+	_pi = pigpio_start(nullptr, nullptr);
+	if (_pi < 0) {
+		PX4_ERR("Cannot connect to pigpiod");
+		return PX4_ERROR;
 	}
 
-	gpioSetMode(CONFIG_BNO085_INT_PIN, PI_INPUT);
-	gpioSetPullUpDown(CONFIG_BNO085_INT_PIN, PI_PUD_UP);
-	gpioSetMode(CONFIG_BNO085_RESET_PIN, PI_OUTPUT);
-	gpioSetMode(CONFIG_BNO085_WAKEUP_PIN, PI_OUTPUT);
+	// if (gpioInitialise() < 0) {
+	// 	PX4_INFO("in init");
+	// 	DEVICE_DEBUG("pigpio initialisation failed");
+	//  	return PX4_ERROR;
+	// }
+
+	set_mode(_pi, CONFIG_BNO085_INT_PIN, PI_INPUT);
+	set_pull_up_down(_pi, CONFIG_BNO085_INT_PIN, PI_PUD_UP);
+	set_mode(_pi, CONFIG_BNO085_RESET_PIN, PI_OUTPUT);
+	set_mode(_pi, CONFIG_BNO085_WAKEUP_PIN, PI_OUTPUT);
 
 	return Reset() ? 0 : -1;
 }
@@ -57,7 +67,8 @@ void BNO085::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
 	I2CSPIDriverBase::exit_and_cleanup();
-	gpioTerminate();
+	pigpio_stop(_pi);
+	_pi = -1;
 }
 
 void BNO085::print_status()
@@ -81,14 +92,21 @@ void BNO085::RunImpl()
 	switch (_state) {
 	case STATE::RESET:
 	{
-		PX4_INFO("BIN IM RESET");
+		while(1)
+		{
+			gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
+			px4_usleep(1 * 1000000);
+			gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 0);
+			px4_usleep(1 * 1000000);	
+		}
+
 		// Reset sequence
-		gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 1);
+		gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
 		px4_usleep(10 * 1000);
 
-		gpioWrite(CONFIG_BNO085_RESET_PIN, 0);
+		gpio_write(_pi, CONFIG_BNO085_RESET_PIN, 0);
 		px4_usleep(1 * 1000);
-		gpioWrite(CONFIG_BNO085_RESET_PIN, 1);
+		gpio_write(_pi, CONFIG_BNO085_RESET_PIN, 1);
 
 		break;
 	}
@@ -96,10 +114,10 @@ void BNO085::RunImpl()
 	case STATE::WAIT_FOR_REBOOT:
 	{
 		// Boot handshake: wait for INT pin
-		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
-		while (gpioRead(CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
-		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
-		while (gpioRead(CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
+		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
+		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
+		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) { px4_usleep(1000); }
+		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 0) { px4_usleep(1000); }
 		PX4_INFO("Wait for reboot complete");
 
 		break;
@@ -185,10 +203,10 @@ void BNO085::RunImpl()
 
 void BNO085::WakeUp()
 {
-	gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 0);
-	px4_usleep(10 * 1000); // 10 ms
-	gpioWrite(CONFIG_BNO085_WAKEUP_PIN, 1);
-	px4_usleep(10 * 1000); // 10 ms
+	gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 0);
+    px4_usleep(10 * 1000); // 10 ms
+    gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
+    px4_usleep(10 * 1000); // 10 ms
 }
 
 void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
@@ -224,7 +242,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	WakeUp();
 	while (tries < max_tries && !success) {
 
-		while (gpioRead(CONFIG_BNO085_INT_PIN) == 1) {
+		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) {
 			px4_usleep(1000);
 		}
 
@@ -276,7 +294,7 @@ bool BNO085::DataReadyInterruptConfigure()
 
 bool BNO085::DataReadyInterruptDisable()
 {
-	return px4_arch_gpiosetevent(_drdy_gpio, false, false, false, nullptr, nullptr) == 0;
+	return px4_arch_gpiosetevent(CONFIG_BNO085_INT_PIN, false, false, false, nullptr, nullptr) == 0;
 }
 
 bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)

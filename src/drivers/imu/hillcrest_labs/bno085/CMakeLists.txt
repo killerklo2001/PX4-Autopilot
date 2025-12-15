@@ -32,19 +32,23 @@
 ############################################################################
 
 px4_add_module(
-	MODULE drivers__imu__hillcrest_labs__bno085
-	MAIN bno085
-	COMPILE_FLAGS
-	SRCS
-		HillcrestLabs_BNO085_reports.hpp
+    MODULE drivers__imu__hillcrest_labs__bno085
+    MAIN bno085
+    COMPILE_FLAGS
+    SRCS
+        HillcrestLabs_BNO085_reports.hpp
+        BNO085.cpp
+        BNO085.hpp
+        bno085_main.cpp
+    DEPENDS
+        drivers_accelerometer
+        drivers_gyroscope
+        drivers__device
+        px4_work_queue
+)
 
-		BNO085.cpp
-		BNO085.hpp
-
-		bno085_main.cpp
-	DEPENDS
-		drivers_accelerometer
-		drivers_gyroscope
-		drivers__device
-		px4_work_queue
-	)
+target_link_libraries(drivers__imu__hillcrest_labs__bno085
+    PRIVATE
+        pigpiod_if2
+        rt
+)

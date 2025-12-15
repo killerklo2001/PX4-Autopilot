@@ -50,6 +50,9 @@ private:
 
 	bool ReadReport(const hrt_abstime &timestamp_sample);
 
+	int _pi{-1};
+	const spi_drdy_gpio_t _drdy_gpio;
+	
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
 
