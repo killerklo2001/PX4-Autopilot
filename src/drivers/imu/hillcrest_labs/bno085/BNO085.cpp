@@ -204,7 +204,7 @@ void BNO085::RunImpl()
 
 	case STATE::READ_REPORTS:
 	{
-		PX4_INFO("IN READ_REPORTS");
+		//PX4_INFO("IN READ_REPORTS");
 		hrt_abstime timestamp_sample = 0;
 
 		bool success = false;
@@ -347,7 +347,7 @@ void BNO085::DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32
 {
     if (edge == 0) {  // FALLING_EDGE
         static_cast<BNO085 *>(userdata)->ScheduleNow();
-		PX4_INFO("CALLBACK TRIGGERED");
+		//PX4_INFO("CALLBACK TRIGGERED");
     }
 }
 
