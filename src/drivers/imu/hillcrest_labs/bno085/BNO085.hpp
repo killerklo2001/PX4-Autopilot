@@ -40,6 +40,7 @@ private:
 	bool Reset();
 
 	void SetFeature(uint8_t feature_id, uint32_t report_interval_us);
+	bool GetFeature(uint8_t feature_id, uint32_t report_interval_us);
 
 	bool Configure();
 
@@ -51,6 +52,10 @@ private:
 
 	int _pi{-1};
 	int _pigpio_cb{-1};
+	int _ch_seq{0};
+	int _set_feature_tries{0};
+	bool _accel_set{false};
+	bool _gyro_set{false};
 	const spi_drdy_gpio_t _drdy_gpio;
 	
 	PX4Accelerometer _px4_accel;
@@ -71,7 +76,8 @@ private:
 		RESET,
 		WAIT_FOR_REBOOT,
 		FLUSH_REBOOT_REPORTS,
-		CONFIGURE,
+		CONFIGURE_PX4,
+		SET_FEATURES,
 		READ_REPORTS,
 	} _state{STATE::RESET};
 

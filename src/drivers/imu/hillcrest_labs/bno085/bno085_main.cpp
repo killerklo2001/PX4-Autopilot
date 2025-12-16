@@ -52,6 +52,7 @@ extern "C" int bno085_main(int argc, char *argv[])
 	using ThisDriver = BNO085;
 	BusCLIArguments cli{false, true};
 	cli.default_spi_frequency = 1000000; // 1MHz
+	cli.spi_mode = SPIDEV_MODE3;
 
 	while ((ch = cli.getOpt(argc, argv, "R:")) != EOF) {
 		switch (ch) {

@@ -5,7 +5,6 @@
 
 using namespace time_literals;
 
-
 BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	SPI(config),
 	I2CSPIDriver(config),
@@ -130,16 +129,16 @@ void BNO085::RunImpl()
 		_reset_timestamp = now;
 		_failure_count = 0;
 		
-		_state = STATE::CONFIGURE;
+		_state = STATE::CONFIGURE_PX4;
 		break;
 	}
 
-	case STATE::CONFIGURE:
+	case STATE::CONFIGURE_PX4:
 	{
 		PX4_INFO("IN CONFIGURE");
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO
-			_state = STATE::READ_REPORTS;
+			_state = STATE::SET_FEATURES;
 
 		} else {
 			// CONFIGURE not complete
@@ -156,6 +155,52 @@ void BNO085::RunImpl()
 
 		break;
 	}
+
+	case STATE::SET_FEATURES:
+	{
+		PX4_INFO("IN SET_FEATURES");
+        
+		if (_set_feature_tries > 50) {
+			PX4_DEBUG("Configure failed, resetting");
+			_state = STATE::RESET;
+		}
+
+		if (!_accel_set) {
+			if (_set_feature_tries == 0) {
+				SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE);
+				_set_feature_tries++;
+			}
+			if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE)) {
+				_accel_set = true;
+				_set_feature_tries = 0;
+				ScheduleDelayed(4_s);
+			} else {
+				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+				_set_feature_tries++;	
+			}
+		}
+		else if (!_gyro_set) {
+			if (_set_feature_tries == 0) {
+				SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE);
+				_set_feature_tries++;
+			}
+			if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE)) {
+				_gyro_set = true;
+				_set_feature_tries = 0;
+				ScheduleDelayed(4_s);
+			} else {
+				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+				_set_feature_tries++;
+			}	
+		}
+		else {
+			_state = STATE::READ_REPORTS;	
+		}
+
+		break;
+	}
+
+
 
 	case STATE::READ_REPORTS:
 	{
@@ -192,7 +237,7 @@ void BNO085::WakeUp()
 	gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 0);
     px4_usleep(10 * 1000); // 10 ms
     gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
-    px4_usleep(10 * 1000); // 10 ms
+    px4_usleep(20 * 1000); // 10 ms
 }
 
 void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
@@ -200,13 +245,15 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	constexpr uint8_t CHANNEL_NUMBER = 2;
 
 	CommandPacket tx_packet{};
-	CommandPacket dummy_tx_packet{};
-	CommandPacket rx_packet{};
+
+	int ch_seq = _ch_seq;
 
 	tx_packet.header.length_lsb = sizeof(CommandPacket) & 0xFF;
 	tx_packet.header.length_msb = (sizeof(CommandPacket) >> 8) & 0xFF;
 	tx_packet.header.channel = CHANNEL_NUMBER;
-	tx_packet.header.ch_seq = (tx_packet.header.ch_seq + 1) & 0xFF;
+	tx_packet.header.ch_seq = ch_seq;
+
+	_ch_seq = (_ch_seq + 1) & 0xFF;
 
 	tx_packet.feature_control_payload.command_id = SHTP_REPORT_SET_FEATURE_COMMAND;
 	tx_packet.feature_control_payload.report_id_feature = feature_id;
@@ -217,10 +264,8 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 
 	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
 	
-	
 
-
-
+	//DEBUG
 	const uint8_t *data = reinterpret_cast<const uint8_t *>(&tx_packet);
 	const size_t len = sizeof(tx_packet);
 
@@ -232,52 +277,66 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	}
 
 	PX4_INFO("Packet: %s", line);
-
-
-
+	//DEBUG END
 
 
 	WakeUp();
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), nullptr, sizeof(tx_packet));
-
-	// wait for response
-	uint16_t tries = 0;
-	const uint16_t max_tries = 50;
-	bool success = false;
-
-	WakeUp();
-	while (tries < max_tries && !success) {
-
-		while (gpio_read(_pi, CONFIG_BNO085_INT_PIN) == 1) {
-			px4_usleep(100);
-		}
-
-		SPI::transfer(reinterpret_cast<uint8_t*>(&dummy_tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(dummy_tx_packet));
-
-		if (rx_packet.feature_control_payload.command_id == SHTP_REPORT_GET_FEATURE_RESPONSE) {
-			PX4_INFO("Feature 0x%02X: got GET_FEATURE_RESPONSE", feature_id);
-			success = true;
-		}
-
-		tries++;
-	}
-
-	if (!success) {
-		PX4_WARN("BNO feature 0x%02X set failed after %u tries", feature_id, max_tries);
-	}
 }
+
+
+bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
+{
+	constexpr uint8_t CHANNEL_NUMBER = 2;
+	CommandPacket dummy_tx_packet{};
+	CommandPacket rx_packet{};
+
+	SPI::transfer(reinterpret_cast<uint8_t*>(&dummy_tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(dummy_tx_packet));
+
+
+	//DEBUG
+	const uint8_t *data = reinterpret_cast<const uint8_t *>(&rx_packet);
+	const size_t len = sizeof(dummy_tx_packet);
+
+	char line[256];
+	int pos = 0;
+
+	for (size_t i = 0; i < len && pos < (int)sizeof(line) - 3; i++) {
+		pos += snprintf(&line[pos], sizeof(line) - pos, "%02X ", data[i]);
+	}
+
+	PX4_INFO("RX-PACKET: %s", line);
+	//DEBUG END
+
+	PX4_INFO("Channel: 0x%02X", rx_packet.header.channel);
+
+	if (rx_packet.header.channel != CHANNEL_NUMBER) {
+		return false;
+	} 
+
+	PX4_INFO("Command: 0x%02X", rx_packet.feature_control_payload.command_id);
+
+	if (rx_packet.feature_control_payload.command_id != SHTP_REPORT_GET_FEATURE_RESPONSE) {
+		return false;
+	}
+
+	if (rx_packet.feature_control_payload.report_id_feature != feature_id) {
+		return false;
+	}
+
+	return true;
+	
+
+}
+
 
 bool BNO085::Configure()
 {
 	_px4_gyro.set_scale(SCALE_Q(9));
-    	_px4_gyro.set_range(math::radians(2000.f));
+    _px4_gyro.set_range(math::radians(2000.f));
 
 	_px4_accel.set_scale(SCALE_Q(8));
 	_px4_accel.set_range(8.f * CONSTANTS_ONE_G);
-	PX4_INFO("BEFORE setFeature");
-	SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE);
-	SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE);
-	PX4_INFO("AFTER setFeature");
 
 	return true;
 }
@@ -324,10 +383,14 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 	Ch3Packet tx_packet{};
 	Ch3Packet rx_packet{};
 
+	int ch_seq = _ch_seq;
+
 	tx_packet.header.length_lsb = sizeof(Ch3Packet) & 0xFF;
 	tx_packet.header.length_msb = (sizeof(Ch3Packet) >> 8) & 0xFF;
 	tx_packet.header.channel = CHANNEL_NUMBER;
-	tx_packet.header.ch_seq = (tx_packet.header.ch_seq + 1) & 0xFF;
+	tx_packet.header.ch_seq = ch_seq;
+
+	_ch_seq = (_ch_seq + 1) & 0xFF;
 
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
 
