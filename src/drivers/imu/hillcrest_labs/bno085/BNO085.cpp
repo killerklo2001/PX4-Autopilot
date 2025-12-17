@@ -81,6 +81,13 @@ void BNO085::RunImpl()
 {
 	const hrt_abstime now = hrt_absolute_time();
 
+	// Watchdog
+	if (_drdy_seen && hrt_elapsed_time(&_last_drdy) > 500_ms) {
+		PX4_WARN("BNO085 DRDY timeout -> WakeUp()");
+		_drdy_seen = false;
+		WakeUp();
+	}
+
 	switch (_state) {
 	case STATE::RESET:
 	{
@@ -200,8 +207,6 @@ void BNO085::RunImpl()
 		break;
 	}
 
-
-
 	case STATE::READ_REPORTS:
 	{
 		//PX4_INFO("IN READ_REPORTS");
@@ -230,6 +235,8 @@ void BNO085::RunImpl()
 	}
 
 	}
+	// Watchdog
+	ScheduleDelayed(200_ms);
 }
 
 void BNO085::WakeUp()
@@ -346,8 +353,10 @@ void BNO085::DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32
 
 {
     if (edge == 0) {  // FALLING_EDGE
-        static_cast<BNO085 *>(userdata)->ScheduleNow();
-		//PX4_INFO("CALLBACK TRIGGERED");
+        auto *self = static_cast<BNO085 *>(userdata);
+        self->_last_drdy = hrt_absolute_time();
+        self->_drdy_seen = true;
+        self->ScheduleNow();
     }
 }
 

@@ -56,6 +56,8 @@ private:
 	int _set_feature_tries{0};
 	bool _accel_set{false};
 	bool _gyro_set{false};
+	hrt_abstime _last_drdy{0};
+    bool _drdy_seen{false};
 	const spi_drdy_gpio_t _drdy_gpio;
 	
 	PX4Accelerometer _px4_accel;
