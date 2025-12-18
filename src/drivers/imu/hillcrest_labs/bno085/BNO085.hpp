@@ -31,7 +31,10 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor configuration
-	static constexpr float SENSOR_SAMPLE_RATE{1e6f / 200.0f}; // 200 Hz -> 5000 us
+	static constexpr float SENSOR_SAMPLE_RATE_HZ = 350.0f;
+	static constexpr float SENSOR_SAMPLE_PERIOD_S = 1.0f / SENSOR_SAMPLE_RATE_HZ;
+	static constexpr float SENSOR_SAMPLE_PERIOD_US = 1e6f / SENSOR_SAMPLE_RATE_HZ;
+	static constexpr float FIFO_SAMPLE_RATE_US{1e6f / 100.0f};
 
 	int probe() override;
 
@@ -59,7 +62,7 @@ private:
 	hrt_abstime _last_drdy{0};
     bool _drdy_seen{false};
 	const spi_drdy_gpio_t _drdy_gpio;
-	
+
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
 

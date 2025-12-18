@@ -174,10 +174,10 @@ void BNO085::RunImpl()
 
 		if (!_accel_set) {
 			if (_set_feature_tries == 0) {
-				SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE);
+				SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US);
 				_set_feature_tries++;
 			}
-			if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_RATE)) {
+			if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US)) {
 				_accel_set = true;
 				_set_feature_tries = 0;
 				ScheduleDelayed(4_s);
@@ -188,10 +188,10 @@ void BNO085::RunImpl()
 		}
 		else if (!_gyro_set) {
 			if (_set_feature_tries == 0) {
-				SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE);
+				SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US);
 				_set_feature_tries++;
 			}
-			if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_RATE)) {
+			if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US)) {
 				_gyro_set = true;
 				_set_feature_tries = 0;
 				ScheduleDelayed(4_s);
@@ -409,41 +409,59 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 		return false;
 	}
 
+	// uint32_t delta_t_us = (rx_packet.ch3_payload.delta_t_msb << 24) |
+    //                       (rx_packet.ch3_payload.delta_t_2   << 16) |
+    //                       (rx_packet.ch3_payload.delta_t_1   << 8)  |
+    //                       rx_packet.ch3_payload.delta_t_lsb;
+
 	int16_t data_x = (int16_t)((rx_packet.ch3_payload.data_x_lsb << 8) |
-                                    rx_packet.ch3_payload.data_x_msb);
-    	int16_t data_y = (int16_t)((rx_packet.ch3_payload.data_y_lsb << 8) |
-                                    rx_packet.ch3_payload.data_y_msb);
-    	int16_t data_z = (int16_t)((rx_packet.ch3_payload.data_z_lsb << 8) |
-                               	    rx_packet.ch3_payload.data_z_msb);
+                                rx_packet.ch3_payload.data_x_msb);
+    int16_t data_y = (int16_t)((rx_packet.ch3_payload.data_y_lsb << 8) |
+                                rx_packet.ch3_payload.data_y_msb);
+    int16_t data_z = (int16_t)((rx_packet.ch3_payload.data_z_lsb << 8) |
+                               	rx_packet.ch3_payload.data_z_msb);
 
 	switch (rx_packet.ch3_payload.report_id) {
-
+		
 		case SENSOR_REPORTID_ACCELEROMETER:
 		{
-			sensor_accel_fifo_s accel{};
-			accel.timestamp_sample = timestamp_sample;
-			accel.samples = 1;
-			accel.dt = SENSOR_SAMPLE_RATE;
-			accel.x[0] = data_x;
-			accel.y[0] = data_y;
-			accel.z[0] = data_z;
-			_px4_accel.updateFIFO(accel);
+			_px4_accel.update(timestamp_sample, data_x, data_y, data_z);
 			break;
 		}
 
 		case SENSOR_REPORTID_GYROSCOPE:
 		{
-			sensor_gyro_fifo_s gyro{};
-			gyro.timestamp_sample = timestamp_sample;
-			gyro.samples = 1;
-			gyro.dt = SENSOR_SAMPLE_RATE;
-			gyro.x[0] = data_x;
-			gyro.y[0] = data_y;
-			gyro.z[0] = data_z;
-			_px4_gyro.updateFIFO(gyro);
+			_px4_gyro.update(timestamp_sample, data_x, data_y, data_z);
 			break;
 		}
+
+		// case SENSOR_REPORTID_ACCELEROMETER:
+		// {
+		// 	sensor_accel_fifo_s accel{};
+		// 	accel.timestamp_sample = timestamp_sample;
+		// 	accel.samples = 1;
+		// 	accel.dt = SENSOR_SAMPLE_PERIOD_US  * 1e-6f;
+		// 	accel.x[0] = data_x;
+		// 	accel.y[0] = data_y;
+		// 	accel.z[0] = data_z;
+		// 	_px4_accel.update(accel);
+		// 	break;
+		// }
+
+		// case SENSOR_REPORTID_GYROSCOPE:
+		// {
+		// 	sensor_gyro_fifo_s gyro{};
+		// 	gyro.timestamp_sample = timestamp_sample;
+		// 	gyro.samples = 1;
+		// 	gyro.dt = SENSOR_SAMPLE_PERIOD_US  * 1e-6f;
+		// 	gyro.x[0] = data_x;
+		// 	gyro.y[0] = data_y;
+		// 	gyro.z[0] = data_z;
+		// 	_px4_gyro.update(gyro);
+		// 	break;
+		// }
 	}
+
 
 	return true;
 }
