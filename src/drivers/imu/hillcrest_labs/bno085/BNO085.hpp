@@ -31,10 +31,8 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor configuration
-	static constexpr float SENSOR_SAMPLE_RATE_HZ = 350.0f;
-	static constexpr float SENSOR_SAMPLE_PERIOD_S = 1.0f / SENSOR_SAMPLE_RATE_HZ;
+	static constexpr float SENSOR_SAMPLE_RATE_HZ = 300.0f;
 	static constexpr float SENSOR_SAMPLE_PERIOD_US = 1e6f / SENSOR_SAMPLE_RATE_HZ;
-	static constexpr float FIFO_SAMPLE_RATE_US{1e6f / 100.0f};
 
 	int probe() override;
 
