@@ -166,59 +166,64 @@ void BNO085::RunImpl()
 
 	case STATE::SET_FEATURES:
 	{
-		PX4_INFO("IN SET_FEATURES");
-
 		if (_set_feature_tries > 50) {
 			PX4_DEBUG("Configure failed, resetting");
 			_state = STATE::RESET;
+			_accel_set = false;
+			_gyro_set = false;
+			_mag_set = false;
 		}
 
-		if (!_accel_set) {
-			if (_set_feature_tries == 0) {
-				SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US);
-				_set_feature_tries++;
-			}
-			if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US)) {
-				_accel_set = true;
-				_set_feature_tries = 0;
-				ScheduleDelayed(4_s);
-			} else {
-				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
-				_set_feature_tries++;
-			}
-		}
-		else if (!_gyro_set) {
-			if (_set_feature_tries == 0) {
-				SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US);
-				_set_feature_tries++;
-			}
-			if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US)) {
-				_gyro_set = true;
-				_set_feature_tries = 0;
-				ScheduleDelayed(4_s);
-			} else {
-				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
-				_set_feature_tries++;
-			}
-		}
-		else if (!_mag_set) {
-			if (_set_feature_tries == 0) {
-				SetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US);
-				_set_feature_tries++;
-			}
-			if (GetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US)) {
-				_gyro_set = true;
-				_set_feature_tries = 0;
-				ScheduleDelayed(4_s);
-			} else {
-				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
-				_set_feature_tries++;
-			}
-		}
-		else {
-			_state = STATE::READ_REPORTS;
-		}
+		if (hrt_elapsed_time(&_last_set) >= 4_s) {
+			PX4_INFO("IN SET_FEATURES");
 
+			if (!_accel_set) {
+				if (_set_feature_tries == 0) {
+					SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US);
+					_set_feature_tries++;
+				}
+				if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US)) {
+					_accel_set = true;
+					_set_feature_tries = 0;
+					_last_set = now;
+				} else {
+					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+					_set_feature_tries++;
+				}
+			}
+			else if (!_gyro_set) {
+				if (_set_feature_tries == 0) {
+					SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US);
+					_set_feature_tries++;
+				}
+				if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US)) {
+					_gyro_set = true;
+					_set_feature_tries = 0;
+					_last_set = now;
+				} else {
+					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+					_set_feature_tries++;
+				}
+			}
+			else if (!_mag_set) {
+				if (_set_feature_tries == 0) {
+					SetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US);
+					_set_feature_tries++;
+				}
+				if (GetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US)) {
+					_mag_set = true;
+					_set_feature_tries = 0;
+					_last_set = now;
+				} else {
+					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+					_set_feature_tries++;
+				}
+			}
+			else {
+				_state = STATE::READ_REPORTS;
+			}
+
+		}
 		break;
 	}
 
@@ -354,11 +359,13 @@ bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
 
 bool BNO085::Configure()
 {
+	// scale with Q-Points from CEVA SH2-Reference Manual
 	_px4_gyro.set_scale(SCALE_Q(9));
-    _px4_gyro.set_range(math::radians(2000.f));
 
 	_px4_accel.set_scale(SCALE_Q(8));
-	_px4_accel.set_range(8.f * CONSTANTS_ONE_G);
+
+	_px4_mag.set_scale(SCALE_Q(4) * 0.01f); // first BNO raw to uT, then to gauss
+
 
 	return true;
 }
