@@ -2,9 +2,10 @@
 #pragma once
 
 #include <drivers/drv_hrt.h>
-#include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/device/spi.h>
+#include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
+#include <lib/drivers/magnetometer/PX4Magnetometer.hpp>
 #include <lib/geo/geo.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/atomic.h>
@@ -57,12 +58,14 @@ private:
 	int _set_feature_tries{0};
 	bool _accel_set{false};
 	bool _gyro_set{false};
+	bool _mag_set{false};
 	hrt_abstime _last_drdy{0};
-    bool _drdy_seen{false};
+    	bool _drdy_seen{false};
 	const spi_drdy_gpio_t _drdy_gpio;
 
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
+	PX4Magnetometer _px4_mag;
 
 	perf_counter_t _drdy_missed_perf{nullptr};
 

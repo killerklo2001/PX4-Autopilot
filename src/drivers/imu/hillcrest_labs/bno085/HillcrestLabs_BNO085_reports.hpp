@@ -57,6 +57,7 @@ enum shtp_channels
 // SENSOR CH3  report IDs [from CEVA SH2-Reference Manual]
 #define SENSOR_REPORTID_ACCELEROMETER  0x01
 #define SENSOR_REPORTID_GYROSCOPE      0x02
+#define SENSOR_REPORTID_MAGNETOMETER   0x03
 
 struct Header {
     uint8_t length_lsb = 0;

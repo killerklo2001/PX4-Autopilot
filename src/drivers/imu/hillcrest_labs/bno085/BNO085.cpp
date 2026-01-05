@@ -10,7 +10,8 @@ BNO085::BNO085(const I2CSPIDriverConfig &config) :
 	I2CSPIDriver(config),
 	_drdy_gpio(config.drdy_gpio),
 	_px4_accel(get_device_id(), ROTATION_ROLL_180_YAW_45),
-	_px4_gyro(get_device_id(), ROTATION_ROLL_180_YAW_45)
+	_px4_gyro(get_device_id(), ROTATION_ROLL_180_YAW_45),
+	_px4_mag(get_device_id(), ROTATION_ROLL_180_YAW_45)
 {
 	if (_drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
@@ -125,7 +126,7 @@ void BNO085::RunImpl()
 	}
 
 	case STATE::FLUSH_REBOOT_REPORTS:
-	{	
+	{
 		PX4_INFO("IN FLUSH_REBOOT_REPORTS");
 		// Flush initial boot reports
 		uint8_t tx_dummy[24] {};
@@ -135,7 +136,7 @@ void BNO085::RunImpl()
 		}
 		_reset_timestamp = now;
 		_failure_count = 0;
-		
+
 		_state = STATE::CONFIGURE_PX4;
 		break;
 	}
@@ -166,7 +167,7 @@ void BNO085::RunImpl()
 	case STATE::SET_FEATURES:
 	{
 		PX4_INFO("IN SET_FEATURES");
-        
+
 		if (_set_feature_tries > 50) {
 			PX4_DEBUG("Configure failed, resetting");
 			_state = STATE::RESET;
@@ -183,7 +184,7 @@ void BNO085::RunImpl()
 				ScheduleDelayed(4_s);
 			} else {
 				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
-				_set_feature_tries++;	
+				_set_feature_tries++;
 			}
 		}
 		else if (!_gyro_set) {
@@ -198,10 +199,24 @@ void BNO085::RunImpl()
 			} else {
 				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
 				_set_feature_tries++;
-			}	
+			}
+		}
+		else if (!_mag_set) {
+			if (_set_feature_tries == 0) {
+				SetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US);
+				_set_feature_tries++;
+			}
+			if (GetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US)) {
+				_gyro_set = true;
+				_set_feature_tries = 0;
+				ScheduleDelayed(4_s);
+			} else {
+				PX4_INFO("TRY %d FAILED!", _set_feature_tries);
+				_set_feature_tries++;
+			}
 		}
 		else {
-			_state = STATE::READ_REPORTS;	
+			_state = STATE::READ_REPORTS;
 		}
 
 		break;
@@ -270,7 +285,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	tx_packet.feature_control_payload.report_interval_msb = (report_interval_us >> 24) & 0xFF;
 
 	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
-	
+
 
 	//DEBUG
 	const uint8_t *data = reinterpret_cast<const uint8_t *>(&tx_packet);
@@ -319,7 +334,7 @@ bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
 
 	if (rx_packet.header.channel != CHANNEL_NUMBER) {
 		return false;
-	} 
+	}
 
 	PX4_INFO("Command: 0x%02X", rx_packet.feature_control_payload.command_id);
 
@@ -332,7 +347,7 @@ bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	}
 
 	return true;
-	
+
 
 }
 
@@ -417,7 +432,7 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 								rx_packet.ch3_payload.data_z_lsb);
 
 	switch (rx_packet.ch3_payload.report_id) {
-		
+
 		case SENSOR_REPORTID_ACCELEROMETER:
 		{
 			_px4_accel.update(timestamp_sample, data_x, data_y, data_z);
@@ -427,6 +442,12 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 		case SENSOR_REPORTID_GYROSCOPE:
 		{
 			_px4_gyro.update(timestamp_sample, data_x, data_y, data_z);
+			break;
+		}
+
+		case SENSOR_REPORTID_MAGNETOMETER:
+		{
+			_px4_mag.update(timestamp_sample, data_x, data_y, data_z);
 			break;
 		}
 	}
