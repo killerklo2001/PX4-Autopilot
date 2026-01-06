@@ -36,6 +36,8 @@
 #include <cmath>
 #include "PCA9685.h"
 
+#include <pigpiod_if2.h>
+
 
 #ifdef CONFIG_PCA9685_USE_EXTERNAL_CRYSTAL
 #define PCA9685_CLOCK_REFERENCE CONFIG_PCA9685_EXTERNAL_CRYSTAL_FREQ
@@ -62,8 +64,16 @@ int PCA9685::init()
 
 int PCA9685::configure()
 {
+	int pi = pigpio_start(nullptr, nullptr);
+	if (pi < 0) {
+		PX4_ERR("Cannot connect to pigpiod");
+		return PX4_ERROR;
+	}
+	set_mode(pi, 12, PI_OUTPUT);
+	gpio_write(pi, 12, 0);
+	
 	uint8_t buf[2] = {};
-
+	
 	buf[0] = PCA9685_REG_MODE1;
 	buf[1] = PCA9685_DEFAULT_MODE1_CFG | PCA9685_MODE1_SLEEP_MASK;  // put into sleep mode
 	int ret = transfer(buf, 2, nullptr, 0);
@@ -127,7 +137,7 @@ int PCA9685::updateFreq(float freq)
 	}
 
 	currentFreq = (float)PCA9685_CLOCK_REFERENCE / (float)((divider + 1) * 4096);
-	//PX4_INFO("PCA9685 PWM frequency: target=%.2f real=%.2f", (double)freq, (double)currentFreq);
+	PX4_INFO("PCA9685 PWM frequency: target=%.2f real=%.2f", (double)freq, (double)currentFreq);
 
 	return setDivider(divider);
 }
@@ -207,9 +217,13 @@ int PCA9685::writePWM(uint8_t idx, const uint16_t *value, uint8_t num)
 {
 	uint8_t buf[PCA9685_PWM_CHANNEL_COUNT * PCA9685_REG_LED_INCREMENT + 1] = {};
 	buf[0] = PCA9685_REG_LED0 + PCA9685_REG_LED_INCREMENT * idx;
+	
+	PX4_INFO("NUMBER OF OUTPUTS: %d", num);
 
 	for (int i = 0; i < num; ++i) {
 		buf[1 + i * PCA9685_REG_LED_INCREMENT] = 0x00;
+
+		PX4_INFO("NEW VALUE for CH%d: %d", i, value[i]);
 
 		if (value[i] == 0) {
 			buf[2 + i * PCA9685_REG_LED_INCREMENT] = 0x00;
