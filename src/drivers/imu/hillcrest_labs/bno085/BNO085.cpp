@@ -179,10 +179,10 @@ void BNO085::RunImpl()
 
 			if (!_accel_set) {
 				if (_set_feature_tries == 0) {
-					SetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US);
+					SetFeature(SENSOR_REPORTID_ACCELEROMETER, ACC_SAMPLE_PERIOD_US);
 					_set_feature_tries++;
 				}
-				if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, SENSOR_SAMPLE_PERIOD_US)) {
+				if (GetFeature(SENSOR_REPORTID_ACCELEROMETER, ACC_SAMPLE_PERIOD_US)) {
 					_accel_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;
@@ -193,10 +193,10 @@ void BNO085::RunImpl()
 			}
 			else if (!_gyro_set) {
 				if (_set_feature_tries == 0) {
-					SetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US);
+					SetFeature(SENSOR_REPORTID_GYROSCOPE, GYRO_SAMPLE_PERIOD_US);
 					_set_feature_tries++;
 				}
-				if (GetFeature(SENSOR_REPORTID_GYROSCOPE, SENSOR_SAMPLE_PERIOD_US)) {
+				if (GetFeature(SENSOR_REPORTID_GYROSCOPE, GYRO_SAMPLE_PERIOD_US)) {
 					_gyro_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;
@@ -207,10 +207,10 @@ void BNO085::RunImpl()
 			}
 			else if (!_mag_set) {
 				if (_set_feature_tries == 0) {
-					SetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US);
+					SetFeature(SENSOR_REPORTID_MAGNETOMETER, MAG_SAMPLE_PERIOD_US);
 					_set_feature_tries++;
 				}
-				if (GetFeature(SENSOR_REPORTID_MAGNETOMETER, SENSOR_SAMPLE_PERIOD_US)) {
+				if (GetFeature(SENSOR_REPORTID_MAGNETOMETER, MAG_SAMPLE_PERIOD_US)) {
 					_mag_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;

@@ -32,8 +32,13 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor configuration
-	static constexpr float SENSOR_SAMPLE_RATE_HZ = 300.0f;
-	static constexpr float SENSOR_SAMPLE_PERIOD_US = 1e6f / SENSOR_SAMPLE_RATE_HZ;
+	static constexpr float GYRO_SAMPLE_RATE_HZ = 400.0f;
+	static constexpr float ACC_SAMPLE_RATE_HZ = 500.0f;
+	static constexpr float MAG_SAMPLE_RATE_HZ = 100.0f;
+
+	static constexpr float GYRO_SAMPLE_PERIOD_US = 1e6f / GYRO_SAMPLE_RATE_HZ;
+	static constexpr float ACC_SAMPLE_PERIOD_US = 1e6f / ACC_SAMPLE_RATE_HZ;
+	static constexpr float MAG_SAMPLE_PERIOD_US = 1e6f / MAG_SAMPLE_RATE_HZ;
 
 	int probe() override;
 
