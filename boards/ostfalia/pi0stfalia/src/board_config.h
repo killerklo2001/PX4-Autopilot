@@ -44,6 +44,8 @@
 #define BOARD_OVERRIDE_UUID "RPIID00000000000" // must be of length 16
 #define PX4_SOC_ARCH_ID     PX4_SOC_ARCH_ID_RPI
 
+//PWM
+#define CONFIG_PCA9685_INVERT_PWM 1
 
 // I2C
 #define CONFIG_I2C 1

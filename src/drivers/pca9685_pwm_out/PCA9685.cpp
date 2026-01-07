@@ -64,13 +64,13 @@ int PCA9685::init()
 
 int PCA9685::configure()
 {
-	int pi = pigpio_start(nullptr, nullptr);
-	if (pi < 0) {
+	_pi = pigpio_start(nullptr, nullptr);
+	if (_pi < 0) {
 		PX4_ERR("Cannot connect to pigpiod");
 		return PX4_ERROR;
 	}
-	set_mode(pi, 12, PI_OUTPUT);
-	gpio_write(pi, 12, 0);
+	set_mode(_pi, 12, PI_OUTPUT);
+	gpio_write(_pi, 12, 0);
 	
 	uint8_t buf[2] = {};
 	
@@ -217,13 +217,15 @@ int PCA9685::writePWM(uint8_t idx, const uint16_t *value, uint8_t num)
 {
 	uint8_t buf[PCA9685_PWM_CHANNEL_COUNT * PCA9685_REG_LED_INCREMENT + 1] = {};
 	buf[0] = PCA9685_REG_LED0 + PCA9685_REG_LED_INCREMENT * idx;
-	
-	PX4_INFO("NUMBER OF OUTPUTS: %d", num);
 
 	for (int i = 0; i < num; ++i) {
 		buf[1 + i * PCA9685_REG_LED_INCREMENT] = 0x00;
 
-		PX4_INFO("NEW VALUE for CH%d: %d", i, value[i]);
+		#ifdef CONFIG_PCA9685_INVERT_PWM
+		uint16_t value_to_send = 4095 - value[i];
+		#else
+		uint16_t value_to_send = value[i];
+		#endif
 
 		if (value[i] == 0) {
 			buf[2 + i * PCA9685_REG_LED_INCREMENT] = 0x00;
@@ -237,8 +239,8 @@ int PCA9685::writePWM(uint8_t idx, const uint16_t *value, uint8_t num)
 
 		} else {
 			buf[2 + i * PCA9685_REG_LED_INCREMENT] = 0x00;
-			buf[3 + i * PCA9685_REG_LED_INCREMENT] = (uint8_t)(value[i] & 0xFF);
-			buf[4 + i * PCA9685_REG_LED_INCREMENT] = (uint8_t)(value[i] >> 8);
+			buf[3 + i * PCA9685_REG_LED_INCREMENT] = (uint8_t)(value_to_send & 0xFF);
+			buf[4 + i * PCA9685_REG_LED_INCREMENT] = (uint8_t)(value_to_send >> 8);
 		}
 	}
 

@@ -167,6 +167,7 @@ protected:
 
 private:
 	float currentFreq;
+	int _pi{-1};
 };
 
 }

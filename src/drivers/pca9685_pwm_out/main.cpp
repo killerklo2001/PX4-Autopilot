@@ -192,7 +192,6 @@ void PCA9685Wrapper::Run()
 
 	switch (_state) {
 	case STATE::CONFIGURE: {
-			PX4_INFO("IN CONFIGURE");
 			int ret = pca9685->configure();
 
 			if (ret == PX4_OK) {
@@ -208,7 +207,6 @@ void PCA9685Wrapper::Run()
 		}
 
 	case STATE::INIT: {
-			PX4_INFO("IN INIT");
 			updateParams();
 			int ret = pca9685->updateFreq(param_pwm_freq);
 			ret |= pca9685->wake();
@@ -240,9 +238,6 @@ void PCA9685Wrapper::Run()
 
 				// update parameters from storage
 				updateParams();
- 				
-				PX4_INFO("VOR 2. IF");
-				PX4_INFO("THIS PWM WAS UPDATED TO: %.2f", (double)param_pwm_freq);
 
 				// apply param updates
 				if ((float)fabs(previous_pwm_freq - param_pwm_freq) > 0.01f) {
@@ -250,9 +245,7 @@ void PCA9685Wrapper::Run()
 
 					int ret = pca9685->sleep();
 					ret |= pca9685->updateFreq(param_pwm_freq);
-					ret |= pca9685->wake();
-
-					PX4_INFO("[DEBUG]PCA9685 PWM frequency changed to %.2f Hz", (double)param_pwm_freq);	
+					ret |= pca9685->wake();	
 
 					if (ret == PX4_OK) {
 						// update of PWM freq will always trigger scheduling change
