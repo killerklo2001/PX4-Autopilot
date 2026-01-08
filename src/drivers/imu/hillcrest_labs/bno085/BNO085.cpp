@@ -92,7 +92,6 @@ void BNO085::RunImpl()
 	switch (_state) {
 	case STATE::RESET:
 	{
-		PX4_INFO("IN RESET");
 		// Reset sequence
 		gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
 		px4_usleep(10 * 1000);
@@ -117,7 +116,6 @@ void BNO085::RunImpl()
 
 	case STATE::WAIT_FOR_REBOOT:
 	{
-		PX4_INFO("IN WAIT_FOR_REBOOT");
 		// Boot handshake: wait for INT pin
 		ScheduleDelayed(1_ms);
 
@@ -127,7 +125,6 @@ void BNO085::RunImpl()
 
 	case STATE::FLUSH_REBOOT_REPORTS:
 	{
-		PX4_INFO("IN FLUSH_REBOOT_REPORTS");
 		// Flush initial boot reports
 		uint8_t tx_dummy[24] {};
 		uint8_t rx_dummy[24] {};
@@ -143,7 +140,6 @@ void BNO085::RunImpl()
 
 	case STATE::CONFIGURE_PX4:
 	{
-		PX4_INFO("IN CONFIGURE");
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::SET_FEATURES;
@@ -167,7 +163,7 @@ void BNO085::RunImpl()
 	case STATE::SET_FEATURES:
 	{
 		if (_set_feature_tries > 50) {
-			PX4_DEBUG("Configure failed, resetting");
+			PX4_DEBUG("Configure failed after %d tries, resetting", _set_feature_tries++);
 			_state = STATE::RESET;
 			_accel_set = false;
 			_gyro_set = false;
@@ -175,7 +171,6 @@ void BNO085::RunImpl()
 		}
 
 		if (hrt_elapsed_time(&_last_set) >= 4_s) {
-			PX4_INFO("IN SET_FEATURES");
 
 			if (!_accel_set) {
 				if (_set_feature_tries == 0) {
@@ -186,8 +181,8 @@ void BNO085::RunImpl()
 					_accel_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;
+					PX4_INFO("Feature 0x%02X set.", SENSOR_REPORTID_ACCELEROMETER);
 				} else {
-					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
 					_set_feature_tries++;
 				}
 			}
@@ -200,8 +195,8 @@ void BNO085::RunImpl()
 					_gyro_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;
+					PX4_INFO("Feature 0x%02X set.", SENSOR_REPORTID_GYROSCOPE);
 				} else {
-					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
 					_set_feature_tries++;
 				}
 			}
@@ -214,8 +209,8 @@ void BNO085::RunImpl()
 					_mag_set = true;
 					_set_feature_tries = 0;
 					_last_set = now;
+					PX4_INFO("Feature 0x%02X set.", SENSOR_REPORTID_MAGNETOMETER);
 				} else {
-					PX4_INFO("TRY %d FAILED!", _set_feature_tries);
 					_set_feature_tries++;
 				}
 			}
@@ -229,7 +224,6 @@ void BNO085::RunImpl()
 
 	case STATE::READ_REPORTS:
 	{
-		//PX4_INFO("IN READ_REPORTS");
 		hrt_abstime timestamp_sample = 0;
 
 		bool success = false;
@@ -292,21 +286,6 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
 
 
-	//DEBUG
-	const uint8_t *data = reinterpret_cast<const uint8_t *>(&tx_packet);
-	const size_t len = sizeof(tx_packet);
-
-	char line[256];
-	int pos = 0;
-
-	for (size_t i = 0; i < len && pos < (int)sizeof(line) - 3; i++) {
-		pos += snprintf(&line[pos], sizeof(line) - pos, "%02X ", data[i]);
-	}
-
-	PX4_INFO("Packet: %s", line);
-	//DEBUG END
-
-
 	WakeUp();
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), nullptr, sizeof(tx_packet));
 }
@@ -320,28 +299,9 @@ bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
 
 	SPI::transfer(reinterpret_cast<uint8_t*>(&dummy_tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(dummy_tx_packet));
 
-
-	//DEBUG
-	const uint8_t *data = reinterpret_cast<const uint8_t *>(&rx_packet);
-	const size_t len = sizeof(dummy_tx_packet);
-
-	char line[256];
-	int pos = 0;
-
-	for (size_t i = 0; i < len && pos < (int)sizeof(line) - 3; i++) {
-		pos += snprintf(&line[pos], sizeof(line) - pos, "%02X ", data[i]);
-	}
-
-	PX4_INFO("RX-PACKET: %s", line);
-	//DEBUG END
-
-	PX4_INFO("Channel: 0x%02X", rx_packet.header.channel);
-
 	if (rx_packet.header.channel != CHANNEL_NUMBER) {
 		return false;
 	}
-
-	PX4_INFO("Command: 0x%02X", rx_packet.feature_control_payload.command_id);
 
 	if (rx_packet.feature_control_payload.command_id != SHTP_REPORT_GET_FEATURE_RESPONSE) {
 		return false;

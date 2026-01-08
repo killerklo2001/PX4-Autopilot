@@ -45,7 +45,7 @@
 #include <stdint.h>
 #include <limits.h>
 
-//#define CONSOLE_PRINT_ARMING_CHECK_EVENT // for debugging, print updated events whenever they change
+#define CONSOLE_PRINT_ARMING_CHECK_EVENT // for debugging, print updated events whenever they change
 
 #ifndef FRIEND_TEST // for gtest
 #define FRIEND_TEST(a, b)
