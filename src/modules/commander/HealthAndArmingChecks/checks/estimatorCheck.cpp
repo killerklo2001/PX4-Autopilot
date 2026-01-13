@@ -753,7 +753,7 @@ void EstimatorChecks::setModeRequirementFlags(const Context &context, bool pre_f
 
 	// attitude
 	vehicle_attitude_s attitude;
-
+	
 	if (_vehicle_attitude_sub.copy(&attitude)) {
 		const matrix::Quatf q{attitude.q};
 		const float eps = 1e-5f;

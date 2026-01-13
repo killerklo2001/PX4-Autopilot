@@ -193,7 +193,7 @@ void VotedSensorsUpdate::imuPoll(struct sensor_combined_s &raw)
 	if (!_parameter_update) {
 		// update current accel/gyro selection, skipped on cycles where parameters update
 		_accel.voter.get_best(time_now_us, &accel_best_index);
-		_gyro.voter.get_best(time_now_us, &gyro_best_index);
+		//_gyro.voter.get_best(time_now_us, &gyro_best_index);
 
 		if (!_param_sens_imu_mode.get() && ((_selection.timestamp != 0) || (_sensor_selection_sub.updated()))) {
 			// use sensor_selection to find best
