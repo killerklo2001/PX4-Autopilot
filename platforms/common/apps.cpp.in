@@ -11,6 +11,9 @@
 
 #include <cstdlib>
 
+#include <board_config.h>
+#include <pigpiod_if2.h>
+
 #define MODULE_NAME "px4"
 
 extern "C" {
@@ -43,6 +46,15 @@ void list_builtins(apps_map_type &apps)
 int shutdown_main(int argc, char *argv[])
 {
 	printf("Exiting NOW.\n");
+#ifdef CONFIG_CUSTOM_SHUTDOWN
+	printf("CUSTOM SHUTDOWN\n");
+	int pi = pigpio_start(nullptr, nullptr);	
+	if (pi < 0) {
+		printf("Cannot connect to pigpiod, PWM stays on.");
+	}
+	set_mode(pi, CONFIG_PCA9685_PWM_OUT_MAN_OE_PIN, PI_OUTPUT);
+	gpio_write(pi, CONFIG_PCA9685_PWM_OUT_MAN_OE_PIN, 1);
+#endif
 	system_exit(0);
 }
 

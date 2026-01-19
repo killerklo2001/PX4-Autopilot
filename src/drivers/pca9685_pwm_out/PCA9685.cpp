@@ -59,18 +59,21 @@ PCA9685::PCA9685(int bus, int addr):
 
 int PCA9685::init()
 {
-	return I2C::init();
+	I2C::init();
+	_pi = pigpio_start(nullptr, nullptr);
+	return PX4_OK;
 }
 
 int PCA9685::configure()
 {
-	_pi = pigpio_start(nullptr, nullptr);
+	#ifdef CONFIG_PCA9685_PWM_OUT_MAN_OE
 	if (_pi < 0) {
 		PX4_ERR("Cannot connect to pigpiod");
 		return PX4_ERROR;
 	}
-	set_mode(_pi, 12, PI_OUTPUT);
-	gpio_write(_pi, 12, 0);
+	set_mode(_pi, CONFIG_PCA9685_PWM_OUT_MAN_OE_PIN, PI_OUTPUT);
+	gpio_write(_pi, CONFIG_PCA9685_PWM_OUT_MAN_OE_PIN, 0);
+	#endif
 	
 	uint8_t buf[2] = {};
 	
