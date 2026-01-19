@@ -55,7 +55,7 @@ private:
 	bool DataReadyInterruptConfigure();
 	bool DataReadyInterruptDisable();
 
-	bool ReadReport(const hrt_abstime &timestamp_sample);
+	bool ReadReport();
 
 	int _pi{-1};
 	int _pigpio_cb{-1};
@@ -64,9 +64,13 @@ private:
 	bool _accel_set{false};
 	bool _gyro_set{false};
 	bool _mag_set{false};
+
+	// timestamp bookkeeping for sensor timebase
+	hrt_abstime _last_drdy{0}; 
+	int64_t _last_base_delta_us{0};
+
 	hrt_abstime _last_set{5 * 1000 * 1000};
-	hrt_abstime _last_drdy{0};
-    	bool _drdy_seen{false};
+    bool _drdy_seen{false};
 	const spi_drdy_gpio_t _drdy_gpio;
 
 	PX4Accelerometer _px4_accel;

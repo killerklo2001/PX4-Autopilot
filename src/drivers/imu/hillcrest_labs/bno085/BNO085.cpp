@@ -224,11 +224,11 @@ void BNO085::RunImpl()
 
 	case STATE::READ_REPORTS:
 	{
-		hrt_abstime timestamp_sample = 0;
+		//hrt_abstime timestamp_sample = 0;
 
 		bool success = false;
 
-		if (ReadReport((timestamp_sample == 0) ? now : timestamp_sample)) {
+		if (ReadReport()) {
 			success = true;
 
 			if (_failure_count > 0) {
@@ -367,7 +367,7 @@ bool BNO085::DataReadyInterruptDisable()
 }
 
 
-bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
+bool BNO085::ReadReport()
 {
 	constexpr uint8_t CHANNEL_NUMBER = 3;
 
@@ -385,11 +385,35 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
 
+	// Host Timestamp
+	hrt_abstime host_ts = _last_drdy ? _last_drdy : hrt_absolute_time();
+
 	// check if timebase report
 	if (rx_packet.ch3_payload.timebase_id != SHTP_REPORT_BASE_TIME) {
 		PX4_WARN("Ignoring packet, not a Timebase report: 0x%02X", rx_packet.ch3_payload.timebase_id);
 		return false;
 	}
+
+
+	// base_delta = signed 32-bit little endian (bytes delta_t_lsb .. delta_t_msb)
+	int32_t base_delta_ticks = (int32_t)(
+		  (uint32_t)rx_packet.ch3_payload.delta_t_lsb
+		| ((uint32_t)rx_packet.ch3_payload.delta_t_1  << 8)
+		| ((uint32_t)rx_packet.ch3_payload.delta_t_2  << 16)
+		| ((uint32_t)rx_packet.ch3_payload.delta_t_msb << 24)
+	);
+
+	// Datasheet: ticks are 100 µs units
+	int64_t base_delta_us = (int64_t)base_delta_ticks * 100LL;
+
+	// delay field from sensor report (1 byte), also in 100 µs ticks
+	uint32_t delay_ticks = (uint32_t)rx_packet.ch3_payload.delay;
+	int64_t delay_us = (int64_t)delay_ticks * 100LL;
+
+	// compute actual sample timestamp according to datasheet:
+	// sample_time = host_ts - base_delta + delay
+	hrt_abstime sample_ts = host_ts - base_delta_us + delay_us;
+
 
 	int16_t data_x = (int16_t)((rx_packet.ch3_payload.data_x_msb << 8) |
 								rx_packet.ch3_payload.data_x_lsb);
@@ -402,19 +426,19 @@ bool BNO085::ReadReport(const hrt_abstime &timestamp_sample)
 
 		case SENSOR_REPORTID_ACCELEROMETER:
 		{
-			_px4_accel.update(timestamp_sample, data_x, data_y, data_z);
+			_px4_accel.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 
 		case SENSOR_REPORTID_GYROSCOPE:
 		{
-			_px4_gyro.update(timestamp_sample, data_x, data_y, data_z);
+			_px4_gyro.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 
 		case SENSOR_REPORTID_MAGNETOMETER:
 		{
-			_px4_mag.update(timestamp_sample, data_x, data_y, data_z);
+			_px4_mag.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 	}
