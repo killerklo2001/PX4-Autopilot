@@ -66,6 +66,9 @@ private:
 	bool _mag_set{false};
 
 	// timestamp bookkeeping for sensor timebase
+	hrt_abstime _last_sample_ts_accel{0};
+	hrt_abstime _last_sample_ts_gyro{0};
+	hrt_abstime _last_sample_ts_mag{0};
 	hrt_abstime _last_drdy{0}; 
 	int64_t _last_base_delta_us{0};
 

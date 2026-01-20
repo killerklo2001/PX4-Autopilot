@@ -230,6 +230,7 @@ void BNO085::RunImpl()
 
 		if (ReadReport()) {
 			success = true;
+			_drdy_seen = false;
 
 			if (_failure_count > 0) {
 				_failure_count--;
@@ -241,6 +242,7 @@ void BNO085::RunImpl()
 
 			// full reset if things are failing consistently
 			if (_failure_count > 10) {
+				_drdy_seen = false;
 				return;
 			}
 		}
@@ -249,6 +251,7 @@ void BNO085::RunImpl()
 	}
 
 	}
+	
 	// Watchdog
 	ScheduleDelayed(200_ms);
 }
@@ -336,6 +339,9 @@ void BNO085::DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32
 {
     if (edge == 0) {  // FALLING_EDGE
         auto *self = static_cast<BNO085 *>(userdata);
+		if (self->_drdy_seen) {
+			PX4_WARN("interrupt already set");
+		}
         self->_last_drdy = hrt_absolute_time();
         self->_drdy_seen = true;
         self->ScheduleNow();
@@ -386,7 +392,7 @@ bool BNO085::ReadReport()
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
 
 	// Host Timestamp
-	hrt_abstime host_ts = _last_drdy ? _last_drdy : hrt_absolute_time();
+	hrt_abstime host_ts = _last_drdy;
 
 	// check if timebase report
 	if (rx_packet.ch3_payload.timebase_id != SHTP_REPORT_BASE_TIME) {
@@ -403,15 +409,17 @@ bool BNO085::ReadReport()
 		| ((uint32_t)rx_packet.ch3_payload.delta_t_msb << 24)
 	);
 
-	// Datasheet: ticks are 100 µs units
-	int64_t base_delta_us = (int64_t)base_delta_ticks * 100LL;
+	// Datasheet: ticks are 100 us units
+	int64_t base_delta_us = (int64_t)base_delta_ticks * 10LL;
 
-	// delay field from sensor report (1 byte), also in 100 µs ticks
-	uint32_t delay_ticks = (uint32_t)rx_packet.ch3_payload.delay;
-	int64_t delay_us = (int64_t)delay_ticks * 100LL;
+	// delay field from sensor report (1 byte), also in 100 us ticks
+	uint8_t status = rx_packet.ch3_payload.status;
+	uint8_t delay_low = rx_packet.ch3_payload.delay;
+	uint32_t delay_high = (status >> 2) & 0x3F; // Masked Bits 7:2
+	uint32_t delay_ticks = (delay_high << 8) | delay_low;
+	int64_t delay_us = (int64_t)delay_ticks * 10LL;
 
-	// compute actual sample timestamp according to datasheet:
-	// sample_time = host_ts - base_delta + delay
+	// compute actual sample timestamp according to datasheet
 	hrt_abstime sample_ts = host_ts - base_delta_us + delay_us;
 
 
@@ -426,22 +434,38 @@ bool BNO085::ReadReport()
 
 		case SENSOR_REPORTID_ACCELEROMETER:
 		{
+			if (sample_ts <= _last_sample_ts_accel) {
+				PX4_WARN("Lower or equal accel timestamp than before. Ignoring...");
+				break;
+			}
+			_last_sample_ts_accel = sample_ts;
 			_px4_accel.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 
 		case SENSOR_REPORTID_GYROSCOPE:
 		{
+			if (sample_ts <= _last_sample_ts_gyro) {
+				PX4_WARN("Lower or equal gyro timestamp than before. Ignoring...");
+				break;
+			}
+			_last_sample_ts_gyro = sample_ts;
 			_px4_gyro.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 
 		case SENSOR_REPORTID_MAGNETOMETER:
 		{
+			if (sample_ts <= _last_sample_ts_mag) {
+				PX4_WARN("Lower or equal mag timestamp than before. Ignoring...");
+				break;
+			}
+			_last_sample_ts_mag = sample_ts;
 			_px4_mag.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 	}
+	//TODO: for gyr acc and mag collect timestamps in array and save to csv. where are the issues?
 
 
 	return true;
