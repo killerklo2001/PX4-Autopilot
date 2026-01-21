@@ -219,6 +219,7 @@ void BNO085::RunImpl()
 			}
 
 		}
+		_drdy_seen = false;
 		break;
 	}
 
@@ -230,7 +231,6 @@ void BNO085::RunImpl()
 
 		if (ReadReport()) {
 			success = true;
-			_drdy_seen = false;
 
 			if (_failure_count > 0) {
 				_failure_count--;
@@ -246,7 +246,7 @@ void BNO085::RunImpl()
 				return;
 			}
 		}
-
+		_drdy_seen = false;
 		break;
 	}
 
@@ -324,8 +324,10 @@ bool BNO085::Configure()
 {
 	// scale with Q-Points from CEVA SH2-Reference Manual
 	_px4_gyro.set_scale(SCALE_Q(9));
+	_px4_gyro.set_range(math::radians(2000.f));
 
 	_px4_accel.set_scale(SCALE_Q(8));
+	_px4_accel.set_range(8.f * CONSTANTS_ONE_G);
 
 	_px4_mag.set_scale(SCALE_Q(4) * 0.01f); // first BNO raw to uT, then to gauss
 
@@ -373,6 +375,41 @@ bool BNO085::DataReadyInterruptDisable()
 }
 
 
+
+#include <iostream>
+#include <fstream>
+#include <iomanip> // für std::fixed, std::setprecision
+#include <cstdint>
+
+void saveCSV(const std::string &filename,
+             uint64_t ts[][4], float data[][3], int rows)
+{
+    std::ofstream file(filename);
+    if (!file) {
+        std::cerr << "Datei konnte nicht geoeffnet werden!\n";
+        return;
+    }
+
+    file << std::fixed;
+
+    for (int i = 0; i < rows; ++i) {
+        // Timestamps / base_delta / delay
+        for (int j = 0; j < 4; ++j) {
+            file << ts[i][j] << ";";
+        }
+        // Sensorwerte
+        for (int j = 0; j < 3; ++j) {
+            file << data[i][j];
+            if (j < 2) file << ";";
+        }
+        file << "\n";
+    }
+
+    file.close();
+}
+
+
+
 bool BNO085::ReadReport()
 {
 	constexpr uint8_t CHANNEL_NUMBER = 3;
@@ -402,22 +439,29 @@ bool BNO085::ReadReport()
 
 
 	// base_delta = signed 32-bit little endian (bytes delta_t_lsb .. delta_t_msb)
-	int32_t base_delta_ticks = (int32_t)(
-		  (uint32_t)rx_packet.ch3_payload.delta_t_lsb
-		| ((uint32_t)rx_packet.ch3_payload.delta_t_1  << 8)
-		| ((uint32_t)rx_packet.ch3_payload.delta_t_2  << 16)
-		| ((uint32_t)rx_packet.ch3_payload.delta_t_msb << 24)
-	);
+	int32_t base_delta_ticks =
+		rx_packet.ch3_payload.delta_t_lsb |
+		(rx_packet.ch3_payload.delta_t_1 << 8) |
+		(rx_packet.ch3_payload.delta_t_2 << 16) |
+		(rx_packet.ch3_payload.delta_t_msb << 24);
 
 	// Datasheet: ticks are 100 us units
-	int64_t base_delta_us = (int64_t)base_delta_ticks * 10LL;
+	int64_t base_delta_us = (int64_t)base_delta_ticks * 100LL;
+
+	PX4_DEBUG("base delta: %lld | host: %llu", base_delta_us, host_ts);
+
+	// catch if negative than host_ts
+	if (base_delta_us < 0) {
+		PX4_WARN("base_delta_us (%lld) < 0 (%llu), dropping packet.", base_delta_us, host_ts);
+		return false;
+	}
 
 	// delay field from sensor report (1 byte), also in 100 us ticks
 	uint8_t status = rx_packet.ch3_payload.status;
 	uint8_t delay_low = rx_packet.ch3_payload.delay;
 	uint32_t delay_high = (status >> 2) & 0x3F; // Masked Bits 7:2
 	uint32_t delay_ticks = (delay_high << 8) | delay_low;
-	int64_t delay_us = (int64_t)delay_ticks * 10LL;
+	int64_t delay_us = (int64_t)delay_ticks * 100LL;
 
 	// compute actual sample timestamp according to datasheet
 	hrt_abstime sample_ts = host_ts - base_delta_us + delay_us;
@@ -435,9 +479,28 @@ bool BNO085::ReadReport()
 		case SENSOR_REPORTID_ACCELEROMETER:
 		{
 			if (sample_ts <= _last_sample_ts_accel) {
-				PX4_WARN("Lower or equal accel timestamp than before. Ignoring...");
+				PX4_WARN("Lower or equal accel timestamp than before. Dropping packet...");
 				break;
 			}
+			if (_debug_counter_acc < DEBUG_ROWS)
+			{
+				_debug_ts_acc[_debug_counter_acc][0] = sample_ts;
+				_debug_ts_acc[_debug_counter_acc][1] = host_ts;
+				_debug_ts_acc[_debug_counter_acc][2] = base_delta_us;
+				_debug_ts_acc[_debug_counter_acc][3] = delay_us;
+
+				_debug_data_acc[_debug_counter_acc][0] = (float)data_x * SCALE_Q(8);
+				_debug_data_acc[_debug_counter_acc][1] = (float)data_y * SCALE_Q(8);
+				_debug_data_acc[_debug_counter_acc][2] = (float)data_z * SCALE_Q(8);
+
+				_debug_counter_acc++;
+			} else if (!_saved_debug_acc)
+			{
+				saveCSV("/home/drone/px4/debugData/acc.csv", _debug_ts_acc, _debug_data_acc, _debug_counter_acc);
+				PX4_INFO("SAVED ACC CSV!!!");
+				_saved_debug_acc = true;	
+			}
+
 			_last_sample_ts_accel = sample_ts;
 			_px4_accel.update(sample_ts, data_x, data_y, data_z);
 			break;
@@ -449,6 +512,25 @@ bool BNO085::ReadReport()
 				PX4_WARN("Lower or equal gyro timestamp than before. Ignoring...");
 				break;
 			}
+			if (_debug_counter_gyr < DEBUG_ROWS)
+			{
+				_debug_ts_gyr[_debug_counter_gyr][0] = sample_ts;
+				_debug_ts_gyr[_debug_counter_gyr][1] = host_ts;
+				_debug_ts_gyr[_debug_counter_gyr][2] = base_delta_us;
+				_debug_ts_gyr[_debug_counter_gyr][3] = delay_us;
+
+				_debug_data_gyr[_debug_counter_gyr][0] = (float)data_x * SCALE_Q(9);
+				_debug_data_gyr[_debug_counter_gyr][1] = (float)data_y * SCALE_Q(9);
+				_debug_data_gyr[_debug_counter_gyr][2] = (float)data_z * SCALE_Q(9);
+
+				_debug_counter_gyr++;
+			} else if (!_saved_debug_gyr)
+			{
+				saveCSV("/home/drone/px4/debugData/gyr.csv", _debug_ts_gyr, _debug_data_gyr, _debug_counter_gyr);
+				PX4_INFO("SAVED GYR CSV!!!");
+				_saved_debug_gyr = true;	
+			}
+
 			_last_sample_ts_gyro = sample_ts;
 			_px4_gyro.update(sample_ts, data_x, data_y, data_z);
 			break;
@@ -460,13 +542,30 @@ bool BNO085::ReadReport()
 				PX4_WARN("Lower or equal mag timestamp than before. Ignoring...");
 				break;
 			}
+			if (_debug_counter_mag < DEBUG_ROWS)
+			{
+				_debug_ts_mag[_debug_counter_mag][0] = sample_ts;
+				_debug_ts_mag[_debug_counter_mag][1] = host_ts;
+				_debug_ts_mag[_debug_counter_mag][2] = base_delta_us;
+				_debug_ts_mag[_debug_counter_mag][3] = delay_us;
+
+				_debug_data_mag[_debug_counter_mag][0] = (float)data_x * SCALE_Q(4);
+				_debug_data_mag[_debug_counter_mag][1] = (float)data_y * SCALE_Q(4);
+				_debug_data_mag[_debug_counter_mag][2] = (float)data_z * SCALE_Q(4);
+
+				_debug_counter_mag++;
+			} else if (!_saved_debug_mag)
+			{
+				saveCSV("/home/drone/px4/debugData/mag.csv", _debug_ts_mag, _debug_data_mag, _debug_counter_mag);
+				PX4_INFO("SAVED MAG CSV!!!");
+				_saved_debug_mag = true;	
+			}
+
 			_last_sample_ts_mag = sample_ts;
 			_px4_mag.update(sample_ts, data_x, data_y, data_z);
 			break;
 		}
 	}
-	//TODO: for gyr acc and mag collect timestamps in array and save to csv. where are the issues?
-
 
 	return true;
 }
