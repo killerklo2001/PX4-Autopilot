@@ -27,28 +27,17 @@ public:
 	int init() override;
 	void print_status() override;
 
-	static const int DEBUG_ROWS = 20000;
-	uint64_t _debug_ts_acc[DEBUG_ROWS][4];
-	float _debug_data_acc[DEBUG_ROWS][3];
-	int _debug_counter_acc{0};
-	bool _saved_debug_acc{false};
-	uint64_t _debug_ts_gyr[DEBUG_ROWS][4];
-	float _debug_data_gyr[DEBUG_ROWS][3];
-	int _debug_counter_gyr{0};
-	bool _saved_debug_gyr{false};
-	uint64_t _debug_ts_mag[DEBUG_ROWS][4];
-	float _debug_data_mag[DEBUG_ROWS][3];
-	int _debug_counter_mag{0};
-	bool _saved_debug_mag{false};
-
 private:
 
 	void exit_and_cleanup() override;
 
 	// Sensor configuration
-	static constexpr float GYRO_SAMPLE_RATE_HZ = 100.0f;
-	static constexpr float ACC_SAMPLE_RATE_HZ = 100.0f;
-	static constexpr float MAG_SAMPLE_RATE_HZ = 100.0f;
+
+	static constexpr float SAMPLE_RATE_HZ = 100.0f;
+
+	static constexpr float GYRO_SAMPLE_RATE_HZ = SAMPLE_RATE_HZ;
+	static constexpr float ACC_SAMPLE_RATE_HZ = SAMPLE_RATE_HZ;
+	static constexpr float MAG_SAMPLE_RATE_HZ = SAMPLE_RATE_HZ;
 
 	static constexpr float GYRO_SAMPLE_PERIOD_US = 1e6f / GYRO_SAMPLE_RATE_HZ;
 	static constexpr float ACC_SAMPLE_PERIOD_US = 1e6f / ACC_SAMPLE_RATE_HZ;

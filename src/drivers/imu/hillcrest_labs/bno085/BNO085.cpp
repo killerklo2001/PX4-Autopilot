@@ -84,7 +84,7 @@ void BNO085::RunImpl()
 
 	// Watchdog
 	if (_drdy_seen && hrt_elapsed_time(&_last_drdy) > 500_ms) {
-		PX4_WARN("BNO085 DRDY timeout -> WakeUp()");
+		PX4_WARN("Timeout, sending wakeup.");
 		_drdy_seen = false;
 		WakeUp();
 	}
@@ -111,6 +111,7 @@ void BNO085::RunImpl()
 		}
 
 		_state = STATE::WAIT_FOR_REBOOT;
+		_drdy_seen = false;
 		break;
 	}
 
@@ -120,6 +121,7 @@ void BNO085::RunImpl()
 		ScheduleDelayed(1_ms);
 
 		_state = STATE::FLUSH_REBOOT_REPORTS;
+		_drdy_seen = false;
 		break;
 	}
 
@@ -135,6 +137,7 @@ void BNO085::RunImpl()
 		_failure_count = 0;
 
 		_state = STATE::CONFIGURE_PX4;
+		_drdy_seen = false;
 		break;
 	}
 
@@ -147,23 +150,23 @@ void BNO085::RunImpl()
 		} else {
 			// CONFIGURE not complete
 			if (hrt_elapsed_time(&_reset_timestamp) > 1000_ms) {
-				PX4_DEBUG("Configure failed, resetting");
+				PX4_ERR("Configure failed, resetting");
 				_state = STATE::RESET;
 
 			} else {
-				PX4_DEBUG("Configure failed, retrying");
+				PX4_ERR("Configure failed, retrying");
 			}
 
 			ScheduleDelayed(100_ms);
 		}
-
+		_drdy_seen = false;
 		break;
 	}
 
 	case STATE::SET_FEATURES:
 	{
 		if (_set_feature_tries > 50) {
-			PX4_DEBUG("Configure failed after %d tries, resetting", _set_feature_tries++);
+			PX4_ERR("Configure failed after %d tries, resetting", _set_feature_tries++);
 			_state = STATE::RESET;
 			_accel_set = false;
 			_gyro_set = false;
@@ -225,8 +228,6 @@ void BNO085::RunImpl()
 
 	case STATE::READ_REPORTS:
 	{
-		//hrt_abstime timestamp_sample = 0;
-
 		bool success = false;
 
 		if (ReadReport()) {
@@ -286,7 +287,7 @@ void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)
 	tx_packet.feature_control_payload.report_interval_2   = (report_interval_us >> 16) & 0xFF;
 	tx_packet.feature_control_payload.report_interval_msb = (report_interval_us >> 24) & 0xFF;
 
-	PX4_INFO("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
+	PX4_DEBUG("Sending 'SET FEATURE COMMAND' for Report ID: 0x%02X", feature_id);
 
 
 	WakeUp();
@@ -314,9 +315,18 @@ bool BNO085::GetFeature(uint8_t feature_id, uint32_t report_interval_us)
 		return false;
 	}
 
+	uint32_t interval =
+      (uint32_t)rx_packet.feature_control_payload.report_interval_lsb
+    | ((uint32_t)rx_packet.feature_control_payload.report_interval_1 << 8)
+    | ((uint32_t)rx_packet.feature_control_payload.report_interval_2 << 16)
+    | ((uint32_t)rx_packet.feature_control_payload.report_interval_msb << 24);
+
+	if (interval != report_interval_us) {
+		PX4_WARN("Feature 0x%02x responded with discrepancy in response time: \nTarget: %dus | Actual: %dus", feature_id, report_interval_us, interval);
+		return true;
+	}
+
 	return true;
-
-
 }
 
 
@@ -337,12 +347,12 @@ bool BNO085::Configure()
 
 
 void BNO085::DataReadyCallback(int pi, unsigned user_gpio, unsigned edge, uint32_t tick, void *userdata)
-
 {
     if (edge == 0) {  // FALLING_EDGE
         auto *self = static_cast<BNO085 *>(userdata);
 		if (self->_drdy_seen) {
-			PX4_WARN("interrupt already set");
+			PX4_DEBUG("Next callback triggered, before previous interrupt was fully handled.");
+			return;
 		}
         self->_last_drdy = hrt_absolute_time();
         self->_drdy_seen = true;
@@ -375,41 +385,6 @@ bool BNO085::DataReadyInterruptDisable()
 }
 
 
-
-#include <iostream>
-#include <fstream>
-#include <iomanip> // für std::fixed, std::setprecision
-#include <cstdint>
-
-void saveCSV(const std::string &filename,
-             uint64_t ts[][4], float data[][3], int rows)
-{
-    std::ofstream file(filename);
-    if (!file) {
-        std::cerr << "Datei konnte nicht geoeffnet werden!\n";
-        return;
-    }
-
-    file << std::fixed;
-
-    for (int i = 0; i < rows; ++i) {
-        // Timestamps / base_delta / delay
-        for (int j = 0; j < 4; ++j) {
-            file << ts[i][j] << ";";
-        }
-        // Sensorwerte
-        for (int j = 0; j < 3; ++j) {
-            file << data[i][j];
-            if (j < 2) file << ";";
-        }
-        file << "\n";
-    }
-
-    file.close();
-}
-
-
-
 bool BNO085::ReadReport()
 {
 	constexpr uint8_t CHANNEL_NUMBER = 3;
@@ -428,17 +403,16 @@ bool BNO085::ReadReport()
 
 	SPI::transfer(reinterpret_cast<uint8_t*>(&tx_packet), reinterpret_cast<uint8_t*>(&rx_packet), sizeof(tx_packet));
 
-	// Host Timestamp
+	// host timestamp
 	hrt_abstime host_ts = _last_drdy;
 
 	// check if timebase report
 	if (rx_packet.ch3_payload.timebase_id != SHTP_REPORT_BASE_TIME) {
-		PX4_WARN("Ignoring packet, not a Timebase report: 0x%02X", rx_packet.ch3_payload.timebase_id);
+		PX4_DEBUG("Ignoring packet, not a Timebase report: 0x%02X", rx_packet.ch3_payload.timebase_id);
 		return false;
 	}
 
-
-	// base_delta = signed 32-bit little endian (bytes delta_t_lsb .. delta_t_msb)
+	// timebase aka base delta (delta t -> sensor interrupt until sending)
 	int32_t base_delta_ticks =
 		rx_packet.ch3_payload.delta_t_lsb |
 		(rx_packet.ch3_payload.delta_t_1 << 8) |
@@ -448,11 +422,9 @@ bool BNO085::ReadReport()
 	// Datasheet: ticks are 100 us units
 	int64_t base_delta_us = (int64_t)base_delta_ticks * 100LL;
 
-	PX4_DEBUG("base delta: %lld | host: %llu", base_delta_us, host_ts);
-
-	// catch if negative than host_ts
+	// catch if negative
 	if (base_delta_us < 0) {
-		PX4_WARN("base_delta_us (%lld) < 0 (%llu), dropping packet.", base_delta_us, host_ts);
+		PX4_DEBUG("base_delta_us (%lld) < 0, dropping packet.", base_delta_us);
 		return false;
 	}
 
@@ -482,25 +454,6 @@ bool BNO085::ReadReport()
 				PX4_WARN("Lower or equal accel timestamp than before. Dropping packet...");
 				break;
 			}
-			if (_debug_counter_acc < DEBUG_ROWS)
-			{
-				_debug_ts_acc[_debug_counter_acc][0] = sample_ts;
-				_debug_ts_acc[_debug_counter_acc][1] = host_ts;
-				_debug_ts_acc[_debug_counter_acc][2] = base_delta_us;
-				_debug_ts_acc[_debug_counter_acc][3] = delay_us;
-
-				_debug_data_acc[_debug_counter_acc][0] = (float)data_x * SCALE_Q(8);
-				_debug_data_acc[_debug_counter_acc][1] = (float)data_y * SCALE_Q(8);
-				_debug_data_acc[_debug_counter_acc][2] = (float)data_z * SCALE_Q(8);
-
-				_debug_counter_acc++;
-			} else if (!_saved_debug_acc)
-			{
-				saveCSV("/home/drone/px4/debugData/acc.csv", _debug_ts_acc, _debug_data_acc, _debug_counter_acc);
-				PX4_INFO("SAVED ACC CSV!!!");
-				_saved_debug_acc = true;	
-			}
-
 			_last_sample_ts_accel = sample_ts;
 			_px4_accel.update(sample_ts, data_x, data_y, data_z);
 			break;
@@ -512,25 +465,6 @@ bool BNO085::ReadReport()
 				PX4_WARN("Lower or equal gyro timestamp than before. Ignoring...");
 				break;
 			}
-			if (_debug_counter_gyr < DEBUG_ROWS)
-			{
-				_debug_ts_gyr[_debug_counter_gyr][0] = sample_ts;
-				_debug_ts_gyr[_debug_counter_gyr][1] = host_ts;
-				_debug_ts_gyr[_debug_counter_gyr][2] = base_delta_us;
-				_debug_ts_gyr[_debug_counter_gyr][3] = delay_us;
-
-				_debug_data_gyr[_debug_counter_gyr][0] = (float)data_x * SCALE_Q(9);
-				_debug_data_gyr[_debug_counter_gyr][1] = (float)data_y * SCALE_Q(9);
-				_debug_data_gyr[_debug_counter_gyr][2] = (float)data_z * SCALE_Q(9);
-
-				_debug_counter_gyr++;
-			} else if (!_saved_debug_gyr)
-			{
-				saveCSV("/home/drone/px4/debugData/gyr.csv", _debug_ts_gyr, _debug_data_gyr, _debug_counter_gyr);
-				PX4_INFO("SAVED GYR CSV!!!");
-				_saved_debug_gyr = true;	
-			}
-
 			_last_sample_ts_gyro = sample_ts;
 			_px4_gyro.update(sample_ts, data_x, data_y, data_z);
 			break;
@@ -542,25 +476,6 @@ bool BNO085::ReadReport()
 				PX4_WARN("Lower or equal mag timestamp than before. Ignoring...");
 				break;
 			}
-			if (_debug_counter_mag < DEBUG_ROWS)
-			{
-				_debug_ts_mag[_debug_counter_mag][0] = sample_ts;
-				_debug_ts_mag[_debug_counter_mag][1] = host_ts;
-				_debug_ts_mag[_debug_counter_mag][2] = base_delta_us;
-				_debug_ts_mag[_debug_counter_mag][3] = delay_us;
-
-				_debug_data_mag[_debug_counter_mag][0] = (float)data_x * SCALE_Q(4);
-				_debug_data_mag[_debug_counter_mag][1] = (float)data_y * SCALE_Q(4);
-				_debug_data_mag[_debug_counter_mag][2] = (float)data_z * SCALE_Q(4);
-
-				_debug_counter_mag++;
-			} else if (!_saved_debug_mag)
-			{
-				saveCSV("/home/drone/px4/debugData/mag.csv", _debug_ts_mag, _debug_data_mag, _debug_counter_mag);
-				PX4_INFO("SAVED MAG CSV!!!");
-				_saved_debug_mag = true;	
-			}
-
 			_last_sample_ts_mag = sample_ts;
 			_px4_mag.update(sample_ts, data_x, data_y, data_z);
 			break;
