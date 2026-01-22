@@ -12,3 +12,6 @@ ipch/
 browse.vc.db*
 
 *.log
+
+# Folder for storing experimental CSV log files
+mylogCSV/
