@@ -244,6 +244,8 @@ void BNO085::RunImpl()
 			// full reset if things are failing consistently
 			if (_failure_count > 10) {
 				_drdy_seen = false;
+				_state = STATE::RESET;
+				_failure_count = 0;
 				return;
 			}
 		}
@@ -252,7 +254,7 @@ void BNO085::RunImpl()
 	}
 
 	}
-	
+
 	// Watchdog
 	ScheduleDelayed(200_ms);
 }
@@ -260,9 +262,9 @@ void BNO085::RunImpl()
 void BNO085::WakeUp()
 {
 	gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 0);
-    px4_usleep(10 * 1000); // 10 ms
-    gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
-    px4_usleep(20 * 1000); // 10 ms
+	px4_usleep(10 * 1000); // 10 ms
+	gpio_write(_pi, CONFIG_BNO085_WAKEUP_PIN, 1);
+	px4_usleep(20 * 1000); // 10 ms
 }
 
 void BNO085::SetFeature(uint8_t feature_id, uint32_t report_interval_us)

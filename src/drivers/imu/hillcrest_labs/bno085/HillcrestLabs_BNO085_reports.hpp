@@ -32,6 +32,7 @@
 ****************************************************************************/
 
 #pragma once
+#pragma pack(push, 1)
 
 namespace HillcrestLabs_BNO085
 {
@@ -117,3 +118,5 @@ struct Ch3Packet
 };
 
 } // namespace HillcrestLabs_BNO085
+
+#pragma pack(pop)
